@@ -29,7 +29,7 @@ clean : $(PROJECT)
 # 	$(CC) $(OBJS) $(GENCODE_FLAGS) -o $@ $(LIBS)
 
 $(PROJECT) : mainDiplom.o
-	$(CC) mainDiplom.o helper.o calc_cost.o calc_disparity.o old_calc_direction.o calc_path.o $(GENCODE_FLAGS) -o $@ $(LIBS)
+	$(CC) mainDiplom.o helper.o calc_cost.o calc_disparity.o calc_path.o $(GENCODE_FLAGS) -o $@ $(LIBS)
 
 # Compile main .cpp file to object files:
 # $(OBJ_DIR)/%.o : %.cpp
@@ -58,5 +58,5 @@ $(PROJECT) : mainDiplom.o
 # ---- nvidea 
 
 mainDiplom.o : src/mainDiplom.cu src/helpers/helper.cu
-	${CC} --gpu-architecture=sm_50 --device-c src/mainDiplom.cu src/helpers/helper.cu src/calc_cost/calc_cost.cu src/calc_disparity/calc_disparity.cu src/old_calc_direction/old_calc_direction.cu src/calc_path/calc_path.cu $(LIBS)
+	${CC} --gpu-architecture=sm_50 --device-c src/mainDiplom.cu src/helpers/helper.cu src/calc_cost/calc_cost.cu src/calc_disparity/calc_disparity.cu src/calc_path/calc_path.cu $(LIBS)
 
