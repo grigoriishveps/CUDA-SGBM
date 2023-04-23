@@ -7,9 +7,11 @@ void calc_disparity(cost_3d_array &sum_cost, cv::Mat &disp_img, size_t rows, siz
   for (int row = 0; row < rows; row++) {
     for (int col = D_LVL; col < cols; col++) {
       unsigned char min_depth = 0;
-      int min_cost = sum_cost[row][col][min_depth];
+      int index  = row * cols* D_LVL + col * D_LVL; 
+
+      int min_cost = sum_cost[index + min_depth];
       for (int d = 1; d < D_LVL; d++) {
-        int tmp_cost = sum_cost[row][col][d];
+        int tmp_cost = sum_cost[index + d];
         if (tmp_cost < min_cost) {
           min_cost = tmp_cost;
           min_depth = d;

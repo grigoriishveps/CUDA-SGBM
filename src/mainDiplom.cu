@@ -40,17 +40,15 @@ int main () {
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
 
-    int ***pix_cost = new int** [rows], ***sum_cost = new int** [rows];
+
+    int *pix_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
+    int *sum_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
     
-    for (int row = 0; row < rows; row++) {
-      pix_cost[row] = new int* [cols];
-      sum_cost[row] = new int* [cols];
-      for (int col = 0; col < cols; col++) {
-        pix_cost[row][col] = new int [D_LVL];
-        sum_cost[row][col] = new int [D_LVL];
-      }
+    if (!pix_cost || !sum_cost) {
+        printf("mem failure, exiting A \n");
+        exit(EXIT_FAILURE);
     }
-    
+
     cv::Mat *census_l = new cv::Mat(rows, cols, CV_8UC1);
     cv::Mat *census_r = new cv::Mat(rows, cols, CV_8UC1);
     cv::Mat disparityMap, *disp_img = new cv::Mat(rows, cols, CV_8UC1);
@@ -132,16 +130,20 @@ int main () {
     // aggregate_direction_cost(pix_cost, agg_cost, sum_cost, rows, cols);
 
   // cout << "1. Census Transform" << endl;
-  census_transform(leftImage, *census_l, rows, cols);
-  census_transform(rightImage, *census_r, rows, cols);
+
 
   // cv::imshow("Census Trans Left", *census_l);
   // cv::imshow("Census Trans Right", *census_r);
 
   // 2. Calculate Pixel Cost.
+  census_transform(leftImage, *census_l, rows, cols);
+  census_transform(rightImage, *census_r, rows, cols);
   cout << "1. Calculate Pixel Cost." << endl;
   costTime = (double) getTickCount();
-  calc_pixel_cost(*census_l, *census_r, pix_cost, rows, cols);
+
+
+
+  calcCost_CUDA(*census_l, *census_r, pix_cost, rows, cols);
   costTime = ((double)getTickCount() - costTime)/getTickFrequency();
 
 
@@ -173,11 +175,11 @@ int main () {
   solving_time = ((double)getTickCount() - solving_time)/getTickFrequency();
   allTimeSolving = ((double)getTickCount() - allTimeSolving)/getTickFrequency();
   cout.precision(3);
-  cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;
-  cout<<"Path algorithm time: "<< pathTime <<"s"<<endl;
-  cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;
-  cout<<"Process time: "<<solving_time<<"s"<<endl;   //480ms
-  cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 550ms
+  cout<<"Cost algorithm time: "<< costTime <<"s"<<endl; //230ms  // 120
+  cout<<"Path algorithm time: "<< pathTime <<"s"<<endl;   //100ms  //48ms
+  cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  /// 36ms
+  cout<<"Process time: "<<solving_time<<"s"<<endl;   //400ms    // 230ms
+  cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 400ms  // 233ms
   std::cout << "OK"<< std::endl;
   while(1)
   {
@@ -186,6 +188,6 @@ int main () {
           break;
   }
   
-  return 0; 
+  return 0;
 }
 

@@ -1,7 +1,6 @@
 #include "../helpers/helper.cuh"
 #include "calc_path.cuh"
 
-
 #include "../calc_disparity/calc_disparity.cuh"
 
 #define D_LVL 64
@@ -27,7 +26,7 @@
   } while (0)
 
 
-__device__ long optimized_aggregate_LEFT_direction_on_CUDA(
+__device__ long optimized_aggregate_LEFT_direction_CUDA(
   int row,
   int col,
   int depth,
@@ -45,7 +44,6 @@ __device__ long optimized_aggregate_LEFT_direction_on_CUDA(
 
   // Pixel matching cost for current pix.
   long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
-  // long indiv_cost = 0;   // CAN OPTIMEZED
 
   if (col == D_LVL) {
     agg_cost[index] = indiv_cost;
@@ -68,7 +66,7 @@ __device__ long optimized_aggregate_LEFT_direction_on_CUDA(
   return agg_cost[index];
 }
 
-__device__ long optimized_aggregate_RIGHT_direction_on_CUDA(
+__device__ long optimized_aggregate_RIGHT_direction_CUDA(
   int row,
   int col,
   int depth,
@@ -108,7 +106,7 @@ __device__ long optimized_aggregate_RIGHT_direction_on_CUDA(
   return agg_cost[index];
 }
 
-__device__ long optimized_aggregate_TOP_direction_on_CUDA(
+__device__ long optimized_aggregate_TOP_direction_CUDA(
   int row,
   int col,
   int depth,
@@ -148,31 +146,14 @@ __device__ long optimized_aggregate_TOP_direction_on_CUDA(
 }
 
 
-
-
-
-void optimized_agregateCostCUDA(cost_3d_array &pix_cost, cost_3d_array &sum_cost, size_t rows, size_t cols) {
+void optimized_agregateCostCUDA(cost_3d_array pix_cost, cost_3d_array sum_cost, size_t rows, size_t cols) {
     long numBytes = rows * cols * D_LVL * sizeof(int);
     long extraBytes = rows * cols * D_LVL * sizeof(long);
 
     // allocate host memory
-    int *a = (int *) calloc(rows * cols * D_LVL, sizeof(int));
-    int * res = (int *) calloc(rows * cols * D_LVL, sizeof(int));
-    
-    if (!a) {
-        printf("mem failure, exiting A \n");
-        exit(EXIT_FAILURE);
-    }
+    int *a = pix_cost;
+    int *res = sum_cost;
 
-    for ( int i = 0; i < rows; i++ ){
-      for ( int j = 0; j < cols; j++ ) 
-        for ( int x = 0; x < D_LVL; x++ ){
-			      int	k = cols*i* D_LVL  + j * D_LVL + x;
-			
-            a[k] = pix_cost[i][j][x];
-        }
-    }
-        
     // allocate device memory
     int * adev = NULL;
     long * extraStore = NULL;
@@ -223,42 +204,17 @@ void optimized_agregateCostCUDA(cost_3d_array &pix_cost, cost_3d_array &sum_cost
       cudaEventDestroy ( start );
       cudaEventDestroy ( stop  );
       allRes += gpuTime;
-
        
-     printf("Time spent executing by the GPU: %.3f millseconds\n", gpuTime);
-
+      // printf("Time spent executing by the GPU: %.3f millseconds\n", gpuTime);
     }
-
     
     printf("Average Time spent executing by the GPU: %.3f millseconds for COUNT=%d \n", allRes / countCheck, countCheck);
-
-   for ( int i = 0; i < rows; i++ ){
-      for ( int j = 0; j < cols; j++ ) 
-        for ( int x = 0; x < D_LVL; x++ ){
-			      long k = cols*i* D_LVL  + j * D_LVL + x;
-            sum_cost[i][j][x] = res[k]; 
-        }
-    }
-
-    // int sumK = 0;
-    // for ( int i = 0; i < rows; i++ ){
-    //   for ( int j = 0; j < cols; j++ ) 
-    //     for ( int x = 0; x < D_LVL; x++ ){
-		// 	      int k = cols*i* D_LVL  + j * D_LVL + x;
-    //         if (adev[k] != resCuda[k]) {
-    //           sumK += 1;
-    //         } 
-    //     }
-    // }
 
     // release resources
  
     checkCudaErrors(cudaFree( adev  ));
     cudaFree  ( extraStore );
     cudaFree  ( resCuda );
-
-    delete a;
-    delete res;
 }
 
 
@@ -294,7 +250,7 @@ __global__ void optimized_matMult_LEFT ( int * pix_cost, long * agg_cost,  size_
       }
 
       __syncthreads();
-      prevAgrArr[depthThread] = optimized_aggregate_LEFT_direction_on_CUDA(row, col, depthThread, pix_cost, agg_cost, rows, cols, min_prev_d, prevAgrArr);
+      prevAgrArr[depthThread] = optimized_aggregate_LEFT_direction_CUDA(row, col, depthThread, pix_cost, agg_cost, rows, cols, min_prev_d, prevAgrArr);
       __syncthreads();
     }
 }
@@ -328,7 +284,7 @@ __global__ void optimized_matMult_RIGHT ( int * pix_cost, long * agg_cost,  size
       }
 
       __syncthreads();
-      prevAgrArr[depthThread] = optimized_aggregate_RIGHT_direction_on_CUDA(row, col, depthThread, pix_cost, agg_cost, rows, cols, min_prev_d, prevAgrArr);
+      prevAgrArr[depthThread] = optimized_aggregate_RIGHT_direction_CUDA(row, col, depthThread, pix_cost, agg_cost, rows, cols, min_prev_d, prevAgrArr);
       __syncthreads();
     }
 }
@@ -364,7 +320,7 @@ __global__ void optimized_matMult_TOP ( int * pix_cost, long * agg_cost,  size_t
         }
 
         __syncthreads();
-        prevAgrArr[depthThread] = optimized_aggregate_TOP_direction_on_CUDA(row, col, depthThread, pix_cost, agg_cost, rows, cols, min_prev_d, prevAgrArr);
+        prevAgrArr[depthThread] = optimized_aggregate_TOP_direction_CUDA(row, col, depthThread, pix_cost, agg_cost, rows, cols, min_prev_d, prevAgrArr);
         __syncthreads();
       }
     }

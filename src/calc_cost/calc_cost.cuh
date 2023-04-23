@@ -5,8 +5,6 @@
 #include <iostream>
 #include <bitset>
 
-typedef int*** cost_3d_array;
+typedef int* cost_3d_array;
 
-void calc_pixel_cost(unsigned int ** census_l, unsigned int **census_r, cost_3d_array &pix_cost, size_t rows, size_t cols);
-void calc_pixel_cost(cv::Mat &census_l, cv::Mat &census_r, cost_3d_array &pix_cost, size_t rows, size_t cols);
-
+void calcCost_CUDA(cv::Mat &census_l, cv::Mat &census_r, cost_3d_array &pix_cost,  size_t rows, size_t cols);
