@@ -9,10 +9,10 @@
 #define WINDOW_HEIGHT 7
 #define BLOCK_SIZE 1
 #define PATHS 5
-// #define P1 5
-// #define P2 20
-#define P1 2
-#define P2 5
+#define P1 5
+#define P2 20
+// #define P1 2
+// #define P2 5
 
 #define checkCudaErrors(err) __checkCudaErrors(err, __FILE__, __LINE__)
 
@@ -27,25 +27,25 @@
   } while (0)
 
 
-__device__ unsigned long optimized_aggregate_LEFT_direction_on_CUDA(
+__device__ long optimized_aggregate_LEFT_direction_on_CUDA(
   int row,
   int col,
   int depth,
   int* pix_cost,
-  unsigned long* agg_cost,
+  long* agg_cost,
   size_t rows,
   size_t cols,
-  unsigned long min_prev_d,
-  unsigned long *prevAgrArr
+  long min_prev_d,
+  long *prevAgrArr
 ) {
   // Depth loop for current pix.
-  unsigned long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
+  long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
 
-  unsigned long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
+  long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
 
   // Pixel matching cost for current pix.
-  unsigned long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
-  // unsigned long indiv_cost = 0;   // CAN OPTIMEZED
+  long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
+  // long indiv_cost = 0;   // CAN OPTIMEZED
 
   if (col == D_LVL) {
     agg_cost[index] = indiv_cost;
@@ -68,24 +68,24 @@ __device__ unsigned long optimized_aggregate_LEFT_direction_on_CUDA(
   return agg_cost[index];
 }
 
-__device__ unsigned long optimized_aggregate_RIGHT_direction_on_CUDA(
+__device__ long optimized_aggregate_RIGHT_direction_on_CUDA(
   int row,
   int col,
   int depth,
   int* pix_cost,
-  unsigned long* agg_cost,
+  long* agg_cost,
   size_t rows,
   size_t cols,
-  unsigned long min_prev_d,
-  unsigned long *prevAgrArr
+  long min_prev_d,
+  long *prevAgrArr
 ) {
   // Depth loop for current pix.
-  unsigned long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
+  long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
 
-  unsigned long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
+  long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
 
   // Pixel matching cost for current pix.
-  unsigned long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
+  long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
 
   if (cols == col + 1) {
     agg_cost[index] = indiv_cost;
@@ -108,23 +108,23 @@ __device__ unsigned long optimized_aggregate_RIGHT_direction_on_CUDA(
   return agg_cost[index];
 }
 
-__device__ unsigned long optimized_aggregate_TOP_direction_on_CUDA(
+__device__ long optimized_aggregate_TOP_direction_on_CUDA(
   int row,
   int col,
   int depth,
   int* pix_cost,
-  unsigned long* agg_cost,
+  long* agg_cost,
   size_t rows,
   size_t cols,
-  unsigned long min_prev_d,
-  unsigned long *prevAgrArr
+  long min_prev_d,
+  long *prevAgrArr
 ) {
-  unsigned long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
+  long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
 
-  unsigned long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
+  long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
 
   // Pixel matching cost for current pix.
-  unsigned long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
+  long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
 
   if (row == 0) {
     agg_cost[index] = indiv_cost;
@@ -175,7 +175,7 @@ void optimized_agregateCostCUDA(cost_3d_array &pix_cost, cost_3d_array &sum_cost
         
     // allocate device memory
     int * adev = NULL;
-    unsigned long * extraStore = NULL;
+    long * extraStore = NULL;
     int * resCuda = NULL;
     checkCudaErrors(cudaMalloc ( (void**)&adev, numBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&extraStore, extraBytes ));
@@ -235,7 +235,7 @@ void optimized_agregateCostCUDA(cost_3d_array &pix_cost, cost_3d_array &sum_cost
    for ( int i = 0; i < rows; i++ ){
       for ( int j = 0; j < cols; j++ ) 
         for ( int x = 0; x < D_LVL; x++ ){
-			      unsigned long k = cols*i* D_LVL  + j * D_LVL + x;
+			      long k = cols*i* D_LVL  + j * D_LVL + x;
             sum_cost[i][j][x] = res[k]; 
         }
     }
@@ -264,11 +264,11 @@ void optimized_agregateCostCUDA(cost_3d_array &pix_cost, cost_3d_array &sum_cost
 
 
 
-__global__ void optimized_matMult_LEFT ( int * pix_cost, unsigned long * agg_cost,  size_t rows_t, size_t cols_t ) {
+__global__ void optimized_matMult_LEFT ( int * pix_cost, long * agg_cost,  size_t rows_t, size_t cols_t ) {
     int bx  = blockIdx.x;     // block index
     int depthThread  = threadIdx.x;        // thread index
-    __shared__ unsigned long min_prev_d;
-    __shared__ unsigned long prevAgrArr[D_LVL];
+    __shared__ long min_prev_d;
+    __shared__ long prevAgrArr[D_LVL];
     int rows = rows_t;
     int cols = cols_t;
   
@@ -299,12 +299,12 @@ __global__ void optimized_matMult_LEFT ( int * pix_cost, unsigned long * agg_cos
     }
 }
 
-__global__ void optimized_matMult_RIGHT ( int * pix_cost, unsigned long * agg_cost,  size_t rows_t, size_t cols_t )
+__global__ void optimized_matMult_RIGHT ( int * pix_cost, long * agg_cost,  size_t rows_t, size_t cols_t )
 {
     int bx  = blockIdx.x;     // block index
     int depthThread  = threadIdx.x;        // thread index
-    __shared__ unsigned long min_prev_d;
-    __shared__ unsigned long prevAgrArr[D_LVL];
+    __shared__ long min_prev_d;
+    __shared__ long prevAgrArr[D_LVL];
     int rows = rows_t;
     int cols = cols_t;
 
@@ -333,12 +333,12 @@ __global__ void optimized_matMult_RIGHT ( int * pix_cost, unsigned long * agg_co
     }
 }
 
-__global__ void optimized_matMult_TOP ( int * pix_cost, unsigned long * agg_cost,  size_t rows_t, size_t cols_t )
+__global__ void optimized_matMult_TOP ( int * pix_cost, long * agg_cost,  size_t rows_t, size_t cols_t )
 {
     int bx  = blockIdx.x;     // block index
     int depthThread  = threadIdx.x;        // thread index
-    __shared__ unsigned long min_prev_d;
-    __shared__ unsigned long prevAgrArr[D_LVL];
+    __shared__ long min_prev_d;
+    __shared__ long prevAgrArr[D_LVL];
     size_t rows = rows_t;
     size_t cols = cols_t;
 
@@ -372,22 +372,12 @@ __global__ void optimized_matMult_TOP ( int * pix_cost, unsigned long * agg_cost
 
 
 
-__global__ void optimised_concatResCUDA ( unsigned long * agg_cost, int* res,  size_t rows, size_t cols ){
+__global__ void optimised_concatResCUDA (long * agg_cost, int* res,  size_t rows, size_t cols ){
   int   bx  = blockIdx.x;     // block index
   int   by  = blockIdx.y;     // block index
   int   tx  = threadIdx.x;    // thread index
 
-  unsigned long smallIndex = bx * cols * D_LVL + by * D_LVL + tx;
-
-  res[smallIndex] += agg_cost[smallIndex];
-}
-
-__global__ void optimised_concatResCUDA ( int * agg_cost, int* res,  size_t rows, size_t cols ){
-  int   bx  = blockIdx.x;     // block index
-  int   by  = blockIdx.y;     // block index
-  int   tx  = threadIdx.x;    // thread index
-
-  unsigned long smallIndex = bx * cols * D_LVL + by * D_LVL + tx;
+  long smallIndex = bx * cols * D_LVL + by * D_LVL + tx;
 
   res[smallIndex] += agg_cost[smallIndex];
 }

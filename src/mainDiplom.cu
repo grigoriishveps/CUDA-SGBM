@@ -13,7 +13,7 @@
 #include "./calc_cost/calc_cost.cuh"
 #include "./calc_disparity/calc_disparity.cuh"
 #include "./calc_path/calc_path.cuh"
-#include "./old_calc_direction/old_calc_direction.cuh"
+// #include "./old_calc_direction/old_calc_direction.cuh"
 
 using namespace cv;
 using namespace cv::ximgproc;
@@ -40,14 +40,14 @@ int main () {
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
 
-    unsigned long ***pix_cost = new unsigned long** [rows], ***sum_cost = new unsigned long** [rows];
+    int ***pix_cost = new int** [rows], ***sum_cost = new int** [rows];
     
     for (int row = 0; row < rows; row++) {
-      pix_cost[row] = new unsigned long* [cols];
-      sum_cost[row] = new unsigned long* [cols];
+      pix_cost[row] = new int* [cols];
+      sum_cost[row] = new int* [cols];
       for (int col = 0; col < cols; col++) {
-        pix_cost[row][col] = new unsigned long [D_LVL];
-        sum_cost[row][col] = new unsigned long [D_LVL];
+        pix_cost[row][col] = new int [D_LVL];
+        sum_cost[row][col] = new int [D_LVL];
       }
     }
     
@@ -177,7 +177,7 @@ int main () {
   cout<<"Path algorithm time: "<< pathTime <<"s"<<endl;
   cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;
   cout<<"Process time: "<<solving_time<<"s"<<endl;   //480ms
-  cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 55ms
+  cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 550ms
   std::cout << "OK"<< std::endl;
   while(1)
   {

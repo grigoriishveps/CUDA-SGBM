@@ -5,6 +5,6 @@
 #include <iostream>
 #include <bitset>
 
-typedef unsigned long*** cost_3d_array;
+typedef int*** cost_3d_array;
 
 void calc_disparity(cost_3d_array &sum_cost, cv::Mat &disp_img, size_t rows, size_t cols);

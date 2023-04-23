@@ -5,8 +5,8 @@
 #include <bitset>
 
 
-typedef unsigned long*** cost_3d_array;
-typedef std::vector<std::vector<std::vector<std::vector<unsigned long> > > > cost_4d_array;
+typedef int*** cost_3d_array;
+typedef std::vector<std::vector<std::vector<std::vector<int> > > > cost_4d_array;
 
 void aggregate_direction_cost(cost_3d_array &pix_cost, cost_3d_array &sum_cost, size_t rows, size_t cols);
 
