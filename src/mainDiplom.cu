@@ -6,17 +6,15 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/core/utility.hpp"
-#include "opencv2/ximgproc.hpp"
 #include <iostream>
 #include <bitset>
 #include "./helpers/helper.cuh"
 #include "./calc_cost/calc_cost.cuh"
 #include "./calc_disparity/calc_disparity.cuh"
 #include "./calc_path/calc_path.cuh"
-// #include "./old_calc_direction/old_calc_direction.cuh"
 
 using namespace cv;
-using namespace cv::ximgproc;
+
 using namespace cv::cuda;
 using namespace std;
 

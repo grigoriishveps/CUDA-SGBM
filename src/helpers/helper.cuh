@@ -6,7 +6,6 @@
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/core/utility.hpp"
-#include "opencv2/ximgproc.hpp"
 #include <iostream>
 #include <bitset>
 
