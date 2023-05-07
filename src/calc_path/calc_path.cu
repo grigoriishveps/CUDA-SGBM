@@ -4,9 +4,6 @@
 #include "../calc_disparity/calc_disparity.cuh"
 
 #define D_LVL 64
-#define WINDOW_WIDTH 9
-#define WINDOW_HEIGHT 7
-#define BLOCK_SIZE 1
 #define PATHS 5
 #define P1 5
 #define P2 20
@@ -146,94 +143,13 @@ __device__ long optimized_aggregate_TOP_direction_CUDA(
 }
 
 
-
-void optimized_agregateCostCUDA(cost_3d_array pix_cost, cost_3d_array sum_cost, size_t rows, size_t cols) {
-    long numBytes = rows * cols * D_LVL * sizeof(int);
-    long extraBytes = rows * cols * D_LVL * sizeof(long);
-
-    // allocate host memory
-    int *a = pix_cost;
-    int *res = sum_cost;
-
-    // allocate device memory
-    int * adev = NULL;
-    long * extraStore = NULL;
-    int * resCuda = NULL;
-    checkCudaErrors(cudaMalloc ( (void**)&adev, numBytes ));
-    checkCudaErrors(cudaMalloc ( (void**)&extraStore, extraBytes ));
-    checkCudaErrors(cudaMalloc ( (void**)&resCuda, numBytes ));
-
-    // set kernel launch configuration
-  
-    dim3 threads ( D_LVL );
-    dim3 blocks  ( rows, cols );
-    // create cuda event handles
-    cudaEvent_t start, stop;
-    float gpuTime;
-    float allRes = 0;
-    int countCheck = 1;
-    
-
-    // TimeCheck
-    for (int i = 0; i< countCheck ; i++) {
-      gpuTime = 0.0f;
-      clearResCUDA<<<blocks, threads>>> ( resCuda, rows, cols);
-      checkCudaErrors(cudaEventCreate ( &start ));
-      checkCudaErrors(cudaEventCreate ( &stop ));
-      
-      // asynchronously issue work to the GPU (all to stream 0)
-      cudaEventRecord ( start, 0 );
-      checkCudaErrors(cudaMemcpy( adev, a, numBytes, cudaMemcpyHostToDevice ));
-      // checkCudaErrors(cudaMemcpy( adev, pix_cost, numBytes, cudaMemcpyHostToDevice ));
-      // checkCudaErrors(cudaMemcpyAsync( adev, a, numBytes, cudaMemcpyHostToDevice, 16 ));
-      
-      optimized_matMult_LEFT<<<rows, D_LVL>>> ( adev, extraStore, rows, cols);
-      optimised_concatResCUDA<<<blocks, threads>>> ( extraStore, resCuda, rows, cols);
-      optimized_matMult_RIGHT<<<rows, D_LVL>>> ( adev, extraStore, rows, cols);
-      optimised_concatResCUDA<<<blocks, threads>>> ( extraStore, resCuda, rows, cols);
-      optimized_matMult_TOP<<<cols, D_LVL>>> ( adev, extraStore, rows, cols);
-      optimised_concatResCUDA<<<blocks, threads>>> ( extraStore, resCuda, rows, cols);
-      
-      // optimised_concatResCUDA<<<blocks, threads>>> ( adev, resCuda, rows, cols);
-
-      checkCudaErrors(cudaMemcpy( res, resCuda, numBytes, cudaMemcpyDeviceToHost ));
-      cudaEventRecord ( stop, 0 );
-
-      cudaEventSynchronize ( stop );
-      cudaEventElapsedTime ( &gpuTime, start, stop );
-
-      cudaEventDestroy ( start );
-      cudaEventDestroy ( stop  );
-      allRes += gpuTime;
-       
-      // printf("Time spent executing by the GPU: %.3f millseconds\n", gpuTime);
-    }
-    
-    printf("Average Time spent executing by the GPU: %.3f millseconds for COUNT=%d \n", allRes / countCheck, countCheck);
-
-    // release resources
- 
-    checkCudaErrors(cudaFree( adev  ));
-    cudaFree  ( extraStore );
-    cudaFree  ( resCuda );
-}
-
-
-
-
 __global__ void optimized_matMult_LEFT ( int * pix_cost, long * agg_cost,  size_t rows_t, size_t cols_t ) {
-    int bx  = blockIdx.x;     // block index
+    int row  = blockIdx.x;     // block index
     int depthThread  = threadIdx.x;        // thread index
     __shared__ long min_prev_d;
     __shared__ long prevAgrArr[D_LVL];
     int rows = rows_t;
     int cols = cols_t;
-  
-    // if( depthThread == 1 && bx==0) {
-    //   printf("Prepare LEFT \n");
-    // }
-
-    int row = bx;
 
     for (int col = D_LVL; col < cols; col++) {
       // Depth loop for previous pix.
@@ -258,18 +174,12 @@ __global__ void optimized_matMult_LEFT ( int * pix_cost, long * agg_cost,  size_
 
 __global__ void optimized_matMult_RIGHT ( int * pix_cost, long * agg_cost,  size_t rows_t, size_t cols_t )
 {
-    int bx  = blockIdx.x;     // block index
+    int row  = blockIdx.x;     // block index
     int depthThread  = threadIdx.x;        // thread index
     __shared__ long min_prev_d;
     __shared__ long prevAgrArr[D_LVL];
     int rows = rows_t;
     int cols = cols_t;
-
-    // if(depthThread == 1 && bx==0) {
-    //   printf("Prepare RIGHT \n");
-    // }
-
-    int row = bx;
 
     for (int col = cols - 1; col >= D_LVL; col--) {
       // Depth loop for previous pix.
@@ -292,20 +202,14 @@ __global__ void optimized_matMult_RIGHT ( int * pix_cost, long * agg_cost,  size
 
 __global__ void optimized_matMult_TOP ( int * pix_cost, long * agg_cost,  size_t rows_t, size_t cols_t )
 {
-    int bx  = blockIdx.x;     // block index
+    int col  = blockIdx.x;     // block index
     int depthThread  = threadIdx.x;        // thread index
     __shared__ long min_prev_d;
     __shared__ long prevAgrArr[D_LVL];
     size_t rows = rows_t;
     size_t cols = cols_t;
 
-    // if(depthThread == 1 && bx==0) {
-    //   printf("Prepare TOP \n");
-    // }
-
-    int col = bx;
-
-    if (bx >= D_LVL) {
+    if (col >= D_LVL) {
       for (int row = 0; row < rows; row++) {
         if(depthThread == 0) {
           min_prev_d = 0xFFFF;

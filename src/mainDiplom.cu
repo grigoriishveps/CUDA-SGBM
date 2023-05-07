@@ -20,14 +20,98 @@ using namespace std;
 
 #define D_LVL 64
 
+#define checkCudaErrors(err) __checkCudaErrors(err, __FILE__, __LINE__)
+
+#define checkCudaErrors(call)                                 \
+  do {                                                        \
+    cudaError_t err = call;                                   \
+    if (err != cudaSuccess) {                                 \
+      printf("CUDA error at %s %d: %s\n", __FILE__, __LINE__, \
+             cudaGetErrorString(err));                        \
+      exit(EXIT_FAILURE);                                     \
+    }                                                         \
+  } while (0)
+
+
+
+__host__ void allProcessOnCUDA(unsigned char* census_l, unsigned char* census_r, int* pix_cost,  size_t rows, size_t cols) {
+    int numBytes = rows * cols * D_LVL * sizeof(int);
+    int smallBytes = rows * cols * D_LVL * sizeof(unsigned char);
+    long extraBytes = rows * cols * D_LVL * sizeof(long);
+
+    // allocate device memory
+    unsigned char * adev = NULL, *bdev = NULL;
+    long * extraStore = NULL;
+    int * resCuda = NULL, *middleRes = NULL;
+
+    checkCudaErrors(cudaMalloc ( (void**)&adev, smallBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&bdev, smallBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&middleRes, numBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&extraStore, extraBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&resCuda, numBytes ));
+
+    // set kernel launch configuration
+  
+    dim3 threads ( D_LVL );
+    dim3 blocks  ( rows, cols );
+    // create cuda event handles
+    cudaEvent_t start, stop;
+    float gpuTime;
+    float allRes = 0;
+    int countCheck = 1;
+
+    // TimeCheck
+    for (int i = 0; i< countCheck ; i++) {
+        gpuTime = 0.0f;
+        checkCudaErrors(cudaEventCreate ( &start ));
+        checkCudaErrors(cudaEventCreate ( &stop ));
+        
+        // asynchronously issue work to the GPU (all to stream 0)
+        cudaEventRecord ( start,  0 );
+        checkCudaErrors(cudaMemcpy( adev, census_l, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
+        checkCudaErrors(cudaMemcpy( bdev, census_r, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
+
+        // COST
+        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, middleRes, rows, cols);
+
+        // PATH
+        optimized_matMult_LEFT<<<rows, D_LVL>>> ( middleRes, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        optimized_matMult_RIGHT<<<rows, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        optimized_matMult_TOP<<<cols, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+
+        checkCudaErrors(cudaMemcpy( pix_cost, resCuda, numBytes, cudaMemcpyDeviceToHost ));
+        cudaEventRecord ( stop, 0 );
+
+        cudaEventSynchronize ( stop );
+        cudaEventElapsedTime ( &gpuTime, start, stop );
+
+        cudaEventDestroy ( start );
+        cudaEventDestroy ( stop  );
+        allRes += gpuTime;
+       
+        // printf("Time spent executing by the GPU: %.3f millseconds\n", gpuTime);
+    }
+    
+    printf("Average Time spent executing by the GPU: %.3f millseconds for COUNT=%d \n", allRes / countCheck, countCheck);
+
+    // release resources
+    checkCudaErrors(cudaFree( adev  ));
+    cudaFree  ( bdev );
+    cudaFree  ( middleRes );
+    cudaFree  ( extraStore );
+    cudaFree  ( resCuda );
+}
+
 
 void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *dispImg) {
-    double costTime, pathTime, disparityTime;
+    double costTime, disparityTime;
     size_t cols = leftImage.cols, rows = leftImage.rows;
-    int *pix_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
     int *sum_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
 
-    if (!pix_cost || !sum_cost) {
+    if (!sum_cost) {
         printf("mem failure, exiting A \n");
         exit(EXIT_FAILURE);
     }
@@ -40,19 +124,11 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     census_transform(rightImage, census_r, rows, cols);
 
     // 2. Calculate Pixel Cost.
-    cout << "1. Calculate Pixel Cost." << endl;
-    costTime = (double) getTickCount();
-
-    calcCost_CUDA(census_l, census_r, pix_cost, rows, cols);
-    costTime = ((double)getTickCount() - costTime)/getTickFrequency();
-
-
     // 3. Aggregate Cost
-    cout << "2. Aggregate Cost" << endl;
-    pathTime = (double) getTickCount();
-    optimized_agregateCostCUDA(pix_cost, sum_cost, rows, cols);   // 20ms
-    pathTime = ((double)getTickCount() - pathTime)/getTickFrequency();
-
+    //One CUDA operation
+    costTime = (double) getTickCount();
+    allProcessOnCUDA(census_l, census_r, sum_cost, rows, cols);
+    costTime = ((double)getTickCount() - costTime)/getTickFrequency();
 
     // 4. Create Disparity Image.
     cout << "3. Create Disparity Image." << endl;
@@ -61,9 +137,7 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     disparityTime = ((double)getTickCount() - disparityTime)/getTickFrequency();
 
     cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 120ms
-    cout<<"Path algorithm time: "<< pathTime <<"s"<<endl;  // 48ms
     cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
-
 }
 
 
@@ -103,24 +177,8 @@ int main () {
     // short** arrayRightImageG = toMatArray(splitResult[1]);
     // short** arrayRightImageB = toMatArray(splitResult[2]);
 
-    // checkCSCT(leftImage);
-
-    // TEST GRAYSCALE
-
-    // // 1. Census Transform.
-    // cout << "1. Census Transform" << endl;
-    
-    // short** arrayLeftImage = toMatArray(leftImage);
-    // short** arrayRightImage = toMatArray(rightImage);
-
-    // uint **CSCTLeftImage = toCSCT(arrayLeftImage, rows, cols);
-    // uint **CSCTRightImage = toCSCT(arrayRightImage, rows, cols);
-
-
-
     calculateImageDisparity(leftImage, rightImage, dispImg);
   
-
 
 
     // Visualize Disparity Image.
@@ -134,8 +192,8 @@ int main () {
     solving_time = ((double)getTickCount() - solving_time)/getTickFrequency();
     allTimeSolving = ((double)getTickCount() - allTimeSolving)/getTickFrequency();
 
-    cout<<"Process time: "<<solving_time<<"s"<<endl;     // 230ms
-    cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 233ms
+    cout<<"Process time: "<<solving_time<<"s"<<endl;     // 179ms
+    cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 184ms
     std::cout << "OK"<< std::endl;
     while(1)
     {

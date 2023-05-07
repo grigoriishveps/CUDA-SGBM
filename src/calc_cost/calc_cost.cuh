@@ -5,4 +5,4 @@
 #include <iostream>
 #include <bitset>
 
-void calcCost_CUDA(unsigned char *census_l, unsigned char *census_r, int* pix_cost,  size_t rows, size_t cols);
+__global__ void processAgregateCostCUDA (unsigned char *left, unsigned char *right, int *res, size_t rows_t, size_t cols_t );
