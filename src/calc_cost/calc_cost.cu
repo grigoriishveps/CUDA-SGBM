@@ -68,14 +68,15 @@ __global__ void optimized_agregateCost_process (unsigned char *left, unsigned ch
 // }
 
 
-void calcCost_CUDA(cv::Mat &census_l, cv::Mat &census_r, cost_3d_array &pix_cost,  size_t rows, size_t cols) {
+__host__ void calcCost_CUDA(cv::Mat &census_l, cv::Mat &census_r, int* pix_cost,  size_t rows, size_t cols) {
+    printf("send");
     int numBytes = rows * cols * D_LVL * sizeof(int);
     int smallBytes = rows * cols * D_LVL * sizeof(unsigned char);
-
+ 
     // allocate device memory
     unsigned char * adev = NULL, *bdev = NULL;
     int * resCuda = NULL;
-  
+
     checkCudaErrors(cudaMalloc ( (void**)&adev, smallBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&bdev, smallBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&resCuda, numBytes ));

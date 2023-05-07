@@ -89,7 +89,6 @@ void census_transform(cv::Mat &img, cv::Mat &census, size_t rows, size_t cols){
       *(census_pnt_st + cols*row + col) = val;
     }
   }
-  return;
 }
 
 
