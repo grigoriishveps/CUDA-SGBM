@@ -20,8 +20,6 @@ using namespace std;
 
 #define D_LVL 64
 
-#define checkCudaErrors(err) __checkCudaErrors(err, __FILE__, __LINE__)
-
 #define checkCudaErrors(call)                                 \
   do {                                                        \
     cudaError_t err = call;                                   \
@@ -137,6 +135,7 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
         exit(EXIT_FAILURE);
     }
 
+
     Mat splitResult[3];
     split(leftImage, splitResult);
     Mat leftImageR = splitResult[0];
@@ -185,6 +184,7 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 120ms
     cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
 
+
     // free(census_l);
     // free(census_r);
     free(census_l_R);
@@ -200,7 +200,6 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
 
 int main () {
     double solving_time, allTimeSolving = (double) getTickCount();
-
     // Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_GRAYSCALE);
     // Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_GRAYSCALE);
     // Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_COLOR);
@@ -217,6 +216,7 @@ int main () {
     cout.precision(3);
     cout << " Start timing"<< endl;
     solving_time = (double) getTickCount();
+
     // resize(leftImage, left_for_matcher, Size(),0.1,0.1, INTER_LINEAR_EXACT);
     // cvtColor(left_for_matcher,  left_for_matcher,  COLOR_BGR2GRAY);
     // left_for_matcher.convertTo(left_for_matcher, CV_16UC1);
@@ -229,7 +229,6 @@ int main () {
     // cout << leftImageR;
 
     calculateImageDisparity(leftImage, rightImage, dispImg);
-
 
     // Visualize Disparity Image.
     disparityMap = *dispImg;
@@ -245,6 +244,9 @@ int main () {
     cout<<"Process time: "<<solving_time<<"s"<<endl;     // 179ms
     cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 184ms
     std::cout << "OK"<< std::endl;
+
+    free(dispImg);
+
     while(1)
     {
         short key = (short)waitKey();
