@@ -5,4 +5,4 @@
 #include <iostream>
 #include <bitset>
 
-void calcCost_CUDA(cv::Mat &census_l, cv::Mat &census_r, int* pix_cost,  size_t rows, size_t cols);
+void calcCost_CUDA(unsigned char *census_l, unsigned char *census_r, int* pix_cost,  size_t rows, size_t cols);

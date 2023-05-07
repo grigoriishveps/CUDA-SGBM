@@ -32,18 +32,18 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
         exit(EXIT_FAILURE);
     }
 
-    cv::Mat *census_l = new cv::Mat(rows, cols, CV_8UC1);
-    cv::Mat *census_r = new cv::Mat(rows, cols, CV_8UC1);
+    unsigned char *census_l = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    unsigned char *census_r = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
 
     // cout << "1. Census Transform" << endl;
-    census_transform(leftImage, *census_l, rows, cols);
-    census_transform(rightImage, *census_r, rows, cols);
+    census_transform(leftImage, census_l, rows, cols);
+    census_transform(rightImage, census_r, rows, cols);
 
     // 2. Calculate Pixel Cost.
     cout << "1. Calculate Pixel Cost." << endl;
     costTime = (double) getTickCount();
 
-    calcCost_CUDA(*census_l, *census_r, pix_cost, rows, cols);
+    calcCost_CUDA(census_l, census_r, pix_cost, rows, cols);
     costTime = ((double)getTickCount() - costTime)/getTickFrequency();
 
 
@@ -84,8 +84,6 @@ int main () {
     // left_for_matcher.convertTo(left_for_matcher, CV_16UC1);
     // leftImage.convertTo(leftImage, CV_16UC3);
     
-    // short leftImageColors =
-
     // Mat splitResult[3];
     // split(leftImage, splitResult);
     // Mat leftImageR = splitResult[0];

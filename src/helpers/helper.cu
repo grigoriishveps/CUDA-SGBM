@@ -3,9 +3,8 @@
 #define WINDOW_WIDTH 9
 #define WINDOW_HEIGHT 7
 
-void census_transform(cv::Mat &img, cv::Mat &census, size_t rows, size_t cols){
+void census_transform(cv::Mat &img, unsigned char *census, size_t rows, size_t cols){
   unsigned char * const img_pnt_st = img.data;
-  unsigned char * const census_pnt_st = census.data;
 
   for (int row=1; row<rows-1; row++) {
     for (int col=1; col<cols-1; col++) {
@@ -22,7 +21,7 @@ void census_transform(cv::Mat &img, cv::Mat &census, size_t rows, size_t cols){
           val = (val + (tmp < *center_pnt ? 0 : 1)) << 1;        
         }
       }
-      *(census_pnt_st + cols*row + col) = val;
+      census[cols*row + col] = (unsigned char) val;
     }
   }
 }

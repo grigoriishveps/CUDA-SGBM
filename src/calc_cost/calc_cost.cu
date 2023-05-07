@@ -45,30 +45,8 @@ __global__ void optimized_agregateCost_process (unsigned char *left, unsigned ch
     res[index] = calc_hamming_dist_CUDA(val_l, val_r);
 }
 
-// 15.5
-// __global__ void optimized_agregateCost_process (unsigned char *left, unsigned char *right, int *res, size_t rows_t, size_t cols_t )
-// {
-//     int row = blockIdx.x;  // block index
-//     int col = blockIdx.y;
-//     int depth = threadIdx.x;
-//     int rows = rows_t;
-//     int cols = cols_t;
 
-//     unsigned char val_l = static_cast<unsigned char>(left[row*cols + col]);
-    
-//     for (int d = 0; d < D_LVL; d++) {
-//       unsigned char val_r = 0;
-//       int index  = row * cols* D_LVL + col * D_LVL + d; 
-//       if (col - d >= 0) {
-//         val_r = static_cast<unsigned char>(right[row*cols + col - d]);
-//       }
-      
-//       res[index] = calc_hamming_dist_CUDA(val_l, val_r);
-//     }
-// }
-
-
-__host__ void calcCost_CUDA(cv::Mat &census_l, cv::Mat &census_r, int* pix_cost,  size_t rows, size_t cols) {
+__host__ void calcCost_CUDA(unsigned char* census_l, unsigned char* census_r, int* pix_cost,  size_t rows, size_t cols) {
     printf("send");
     int numBytes = rows * cols * D_LVL * sizeof(int);
     int smallBytes = rows * cols * D_LVL * sizeof(unsigned char);
@@ -99,8 +77,8 @@ __host__ void calcCost_CUDA(cv::Mat &census_l, cv::Mat &census_r, int* pix_cost,
       
       // asynchronously issue work to the GPU (all to stream 0)
       cudaEventRecord ( start,  0 );
-      checkCudaErrors(cudaMemcpy( adev, census_l.data, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
-      checkCudaErrors(cudaMemcpy( bdev, census_r.data, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
+      checkCudaErrors(cudaMemcpy( adev, census_l, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
+      checkCudaErrors(cudaMemcpy( bdev, census_r, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
 
       optimized_agregateCost_process<<<blocks, threads>>> ( adev, bdev, resCuda, rows, cols);
 
@@ -124,7 +102,6 @@ __host__ void calcCost_CUDA(cv::Mat &census_l, cv::Mat &census_r, int* pix_cost,
     cudaFree  ( bdev );
     cudaFree  ( resCuda );
 }
-
 
 
 
