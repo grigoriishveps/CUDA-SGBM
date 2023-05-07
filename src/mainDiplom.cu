@@ -138,6 +138,10 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
 
     cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 120ms
     cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
+
+    free(sum_cost);
+    free(census_l);
+    free(census_r);
 }
 
 
@@ -146,6 +150,8 @@ int main () {
 
     Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_GRAYSCALE);
     Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_GRAYSCALE);
+    // Mat leftImage = cv::imread("./src/images/appleLeft.png",cv::IMREAD_GRAYSCALE);
+    // Mat rightImage = cv::imread("./src/images/appleRight.png",cv::IMREAD_GRAYSCALE);
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
     cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);
@@ -195,6 +201,9 @@ int main () {
     cout<<"Process time: "<<solving_time<<"s"<<endl;     // 179ms
     cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 184ms
     std::cout << "OK"<< std::endl;
+
+    free(dispImg);
+
     while(1)
     {
         short key = (short)waitKey();
