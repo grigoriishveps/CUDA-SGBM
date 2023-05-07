@@ -38,12 +38,12 @@ __device__ long optimized_aggregate_LEFT_direction_CUDA(
   long *prevAgrArr
 ) {
   // Depth loop for current pix.
-  long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
+  int val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
 
-  long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
+  int index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
 
   // Pixel matching cost for current pix.
-  long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
+  int indiv_cost = pix_cost[index];   // CAN OPTIMEZED
 
   if (col == D_LVL) {
     agg_cost[index] = indiv_cost;
@@ -78,12 +78,12 @@ __device__ long optimized_aggregate_RIGHT_direction_CUDA(
   long *prevAgrArr
 ) {
   // Depth loop for current pix.
-  long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
+  int val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
 
-  long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
+  int index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
 
   // Pixel matching cost for current pix.
-  long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
+  int indiv_cost = pix_cost[index];   // CAN OPTIMEZED
 
   if (cols == col + 1) {
     agg_cost[index] = indiv_cost;
@@ -117,12 +117,12 @@ __device__ long optimized_aggregate_TOP_direction_CUDA(
   long min_prev_d,
   long *prevAgrArr
 ) {
-  long val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
+  int val0 = 0xFFFF, val1 = 0xFFFF, val2 = 0xFFFF, val3 = 0xFFFF;
 
-  long index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
+  int index  = row * cols* D_LVL + col * D_LVL + depth;   // CAN OPTIMEZED
 
   // Pixel matching cost for current pix.
-  long indiv_cost = pix_cost[index];   // CAN OPTIMEZED
+  int indiv_cost = pix_cost[index];   // CAN OPTIMEZED
 
   if (row == 0) {
     agg_cost[index] = indiv_cost;
@@ -144,6 +144,7 @@ __device__ long optimized_aggregate_TOP_direction_CUDA(
 
   return agg_cost[index];
 }
+
 
 
 void optimized_agregateCostCUDA(cost_3d_array pix_cost, cost_3d_array sum_cost, size_t rows, size_t cols) {

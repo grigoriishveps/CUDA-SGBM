@@ -3,73 +3,8 @@
 #define WINDOW_WIDTH 9
 #define WINDOW_HEIGHT 7
 
-ScanLine::ScanLine(int drow, int dcol, bool posdir) {
-  this->drow = drow;
-  this->dcol = dcol;
-  this->posdir = posdir;
-}
-
-ScanLines8::ScanLines8() {
-  // path8.push_back(ScanLine(1, 0, true));
-  // path8.push_back(ScanLine(1, -1, true));
-  // path8.push_back(ScanLine(0, -1, false));
-  path8.push_back(ScanLine(0, 1, true));
-}
-
-__device__ int getDirectionY(size_t path) {
-  switch(path) {
-    case 0:
-      return 1;
-    case 1:
-      return 1;
-    case 2:
-      return 1;
-    case 3:
-      return 0;
-    case 4:
-      return 0; 
-    default:
-      return 0;
-  }
-}
-
-__device__ int getDirectionX(size_t path) {
-  switch(path) {
-    case 0:
-      return 1;
-    case 1:
-      return 0;
-    case 2:
-      return -1;
-    case 3:
-      return -1;
-    case 4:
-      return 1; 
-    default:
-      return 0;
-  }
-}
-
-__device__ int getDirectionPos(size_t path) {
-  switch(path) {
-    case 0:
-      return 1;
-    case 1:
-      return 1;
-    case 2:
-      return 1;
-    case 3:
-      return 1;
-    case 4:
-      return 0; 
-    default:
-      return 1;
-  }
-}
-
-void census_transform(cv::Mat &img, cv::Mat &census, size_t rows, size_t cols){
+void census_transform(cv::Mat &img, unsigned char *census, size_t rows, size_t cols){
   unsigned char * const img_pnt_st = img.data;
-  unsigned char * const census_pnt_st = census.data;
 
   for (int row=1; row<rows-1; row++) {
     for (int col=1; col<cols-1; col++) {
@@ -86,10 +21,9 @@ void census_transform(cv::Mat &img, cv::Mat &census, size_t rows, size_t cols){
           val = (val + (tmp < *center_pnt ? 0 : 1)) << 1;        
         }
       }
-      *(census_pnt_st + cols*row + col) = val;
+      census[cols*row + col] = (unsigned char) val;
     }
   }
-  return;
 }
 
 
