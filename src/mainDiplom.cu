@@ -21,6 +21,52 @@ using namespace std;
 #define D_LVL 64
 
 
+void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *dispImg) {
+    double costTime, pathTime, disparityTime;
+    size_t cols = leftImage.cols, rows = leftImage.rows;
+    int *pix_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
+    int *sum_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
+
+    if (!pix_cost || !sum_cost) {
+        printf("mem failure, exiting A \n");
+        exit(EXIT_FAILURE);
+    }
+
+    cv::Mat *census_l = new cv::Mat(rows, cols, CV_8UC1);
+    cv::Mat *census_r = new cv::Mat(rows, cols, CV_8UC1);
+
+    // cout << "1. Census Transform" << endl;
+    census_transform(leftImage, *census_l, rows, cols);
+    census_transform(rightImage, *census_r, rows, cols);
+
+    // 2. Calculate Pixel Cost.
+    cout << "1. Calculate Pixel Cost." << endl;
+    costTime = (double) getTickCount();
+
+    calcCost_CUDA(*census_l, *census_r, pix_cost, rows, cols);
+    costTime = ((double)getTickCount() - costTime)/getTickFrequency();
+
+
+    // 3. Aggregate Cost
+    cout << "2. Aggregate Cost" << endl;
+    pathTime = (double) getTickCount();
+    optimized_agregateCostCUDA(pix_cost, sum_cost, rows, cols);   // 20ms
+    pathTime = ((double)getTickCount() - pathTime)/getTickFrequency();
+
+
+    // 4. Create Disparity Image.
+    cout << "3. Create Disparity Image." << endl;
+    disparityTime = (double) getTickCount();
+    calc_disparity(sum_cost, *dispImg, rows, cols);
+    disparityTime = ((double)getTickCount() - disparityTime)/getTickFrequency();
+
+    cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 120ms
+    cout<<"Path algorithm time: "<< pathTime <<"s"<<endl;  // 48ms
+    cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
+
+}
+
+
 int main () {
     double solving_time, allTimeSolving = (double) getTickCount();
 
@@ -30,6 +76,7 @@ int main () {
     size_t cols = leftImage.cols, rows = leftImage.rows;
     cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);
 
+    cout.precision(3);
     cout << " Start timing"<< endl;
     solving_time = (double) getTickCount();
     // resize(leftImage, left_for_matcher, Size(),0.1,0.1, INTER_LINEAR_EXACT);
@@ -72,43 +119,9 @@ int main () {
     // uint **CSCTRightImage = toCSCT(arrayRightImage, rows, cols);
 
 
-    double costTime, pathTime, disparityTime;
-    int *pix_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
-    int *sum_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
-    
-    if (!pix_cost || !sum_cost) {
-        printf("mem failure, exiting A \n");
-        exit(EXIT_FAILURE);
-    }
 
-    cv::Mat *census_l = new cv::Mat(rows, cols, CV_8UC1);
-    cv::Mat *census_r = new cv::Mat(rows, cols, CV_8UC1);
-
-    // cout << "1. Census Transform" << endl;
-    census_transform(leftImage, *census_l, rows, cols);
-    census_transform(rightImage, *census_r, rows, cols);
-
-    // 2. Calculate Pixel Cost.
-    cout << "1. Calculate Pixel Cost." << endl;
-    costTime = (double) getTickCount();
-
-    calcCost_CUDA(*census_l, *census_r, pix_cost, rows, cols);
-    costTime = ((double)getTickCount() - costTime)/getTickFrequency();
-
-
-    // 3. Aggregate Cost
-    cout << "2. Aggregate Cost" << endl;
-    pathTime = (double) getTickCount();
-    optimized_agregateCostCUDA(pix_cost, sum_cost, rows, cols);   // 20ms
-    pathTime = ((double)getTickCount() - pathTime)/getTickFrequency();
-
-
-    // 4. Create Disparity Image.
-    cout << "3. Create Disparity Image." << endl;
-    disparityTime = (double) getTickCount();
-    calc_disparity(sum_cost, *dispImg, rows, cols);
-    disparityTime = ((double)getTickCount() - disparityTime)/getTickFrequency();
-
+    calculateImageDisparity(leftImage, rightImage, dispImg);
+  
 
 
 
@@ -122,10 +135,7 @@ int main () {
 
     solving_time = ((double)getTickCount() - solving_time)/getTickFrequency();
     allTimeSolving = ((double)getTickCount() - allTimeSolving)/getTickFrequency();
-    cout.precision(3);
-    cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 120ms
-    cout<<"Path algorithm time: "<< pathTime <<"s"<<endl;  // 48ms
-    cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
+
     cout<<"Process time: "<<solving_time<<"s"<<endl;     // 230ms
     cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 233ms
     std::cout << "OK"<< std::endl;
