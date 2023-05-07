@@ -20,8 +20,6 @@ using namespace std;
 
 #define D_LVL 64
 
-#define checkCudaErrors(err) __checkCudaErrors(err, __FILE__, __LINE__)
-
 #define checkCudaErrors(call)                                 \
   do {                                                        \
     cudaError_t err = call;                                   \
@@ -37,7 +35,6 @@ using namespace std;
 __host__ void allProcessOnCUDA(unsigned char* census_l, unsigned char* census_r, int* pix_cost,  size_t rows, size_t cols) {
     int numBytes = rows * cols * D_LVL * sizeof(int);
     int smallBytes = rows * cols * D_LVL * sizeof(unsigned char);
-    int extraBytes = rows * cols * D_LVL * sizeof(int);
 
     // allocate device memory
     unsigned char * adev = NULL, *bdev = NULL;
@@ -47,7 +44,7 @@ __host__ void allProcessOnCUDA(unsigned char* census_l, unsigned char* census_r,
     checkCudaErrors(cudaMalloc ( (void**)&adev, smallBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&bdev, smallBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&middleRes, numBytes ));
-    checkCudaErrors(cudaMalloc ( (void**)&extraStore, extraBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&extraStore, numBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&resCuda, numBytes ));
 
     // set kernel launch configuration
@@ -119,7 +116,7 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     unsigned char *census_l = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
     unsigned char *census_r = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
 
-    // cout << "1. Census Transform" << endl;
+    cout << "1. Census Transform" << endl;
     census_transform(leftImage, census_l, rows, cols);
     census_transform(rightImage, census_r, rows, cols);
 
@@ -150,8 +147,12 @@ int main () {
 
     Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_GRAYSCALE);
     Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_GRAYSCALE);
-    // Mat leftImage = cv::imread("./src/images/appleLeft.png",cv::IMREAD_GRAYSCALE);
-    // Mat rightImage = cv::imread("./src/images/appleRight.png",cv::IMREAD_GRAYSCALE);
+    // Mat leftImage = cv::imread("./src/images/appleLeft.jpg",cv::IMREAD_GRAYSCALE);
+    // Mat rightImage = cv::imread("./src/images/appleRight.jpg",cv::IMREAD_GRAYSCALE);
+    // Mat leftImage = cv::imread("./src/images/carLeft.jpg",cv::IMREAD_GRAYSCALE);
+    // Mat rightImage = cv::imread("./src/images/carRight.jpg",cv::IMREAD_GRAYSCALE);
+    // Mat leftImage = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_GRAYSCALE);
+    // Mat rightImage = cv::imread("./src/images/warRight.jpg",cv::IMREAD_GRAYSCALE);
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
     cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);
@@ -159,39 +160,16 @@ int main () {
     cout.precision(3);
     cout << " Start timing"<< endl;
     solving_time = (double) getTickCount();
-    // resize(leftImage, left_for_matcher, Size(),0.1,0.1, INTER_LINEAR_EXACT);
-    // cvtColor(left_for_matcher,  left_for_matcher,  COLOR_BGR2GRAY);
-    // left_for_matcher.convertTo(left_for_matcher, CV_16UC1);
-    // leftImage.convertTo(leftImage, CV_16UC3);
-    
-    // Mat splitResult[3];
-    // split(leftImage, splitResult);
-    // Mat leftImageR = splitResult[0];
-    // Mat leftImageG = splitResult[1];
-    // Mat leftImageB = splitResult[2];
 
-    // imshow("Blue Channel", leftImageR);//showing Blue channel//
-    // imshow("Green Channel", leftImageG);//showing Green channel//
-    // imshow("Red Channel", leftImageB);
-    // cout << leftImageR;
-
-    // short** arrayLeftImageR = toMatArray(splitResult[0]);
-    // short** arrayLeftImageG = toMatArray(splitResult[1]);
-    // short** arrayLeftImageB = toMatArray(splitResult[2]);
-
-    // short** arrayRightImageR = toMatArray(splitResult[0]);
-    // short** arrayRightImageG = toMatArray(splitResult[1]);
-    // short** arrayRightImageB = toMatArray(splitResult[2]);
-
+    imshow("leftImage", leftImage);
+    imshow("rightImage", rightImage);
     calculateImageDisparity(leftImage, rightImage, dispImg);
-  
-
 
     // Visualize Disparity Image.
     disparityMap = *dispImg;
     disparityMap.convertTo(disparityMap, CV_8U, 256.0/D_LVL);
     applyColorMap(disparityMap, disparityMap, COLORMAP_JET);
-    imshow("leftImage", disparityMap);
+    imshow("disparityImage", disparityMap);
 
     // END TEST GRAYSCALE
 
