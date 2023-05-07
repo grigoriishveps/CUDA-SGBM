@@ -37,11 +37,11 @@ using namespace std;
 __host__ void allProcessOnCUDA(unsigned char* census_l, unsigned char* census_r, int* pix_cost,  size_t rows, size_t cols) {
     int numBytes = rows * cols * D_LVL * sizeof(int);
     int smallBytes = rows * cols * D_LVL * sizeof(unsigned char);
-    long extraBytes = rows * cols * D_LVL * sizeof(long);
+    int extraBytes = rows * cols * D_LVL * sizeof(int);
 
     // allocate device memory
     unsigned char * adev = NULL, *bdev = NULL;
-    long * extraStore = NULL;
+    int * extraStore = NULL;
     int * resCuda = NULL, *middleRes = NULL;
 
     checkCudaErrors(cudaMalloc ( (void**)&adev, smallBytes ));
