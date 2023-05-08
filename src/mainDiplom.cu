@@ -78,13 +78,14 @@ __host__ void allProcessOnCUDA(
         checkCudaErrors(cudaMemcpy( adev, census_l_R, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_R, smallBytes, cudaMemcpyHostToDevice ));  
         processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        // processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, middleRes, rows, cols);
         optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
 
         checkCudaErrors(cudaMemcpy( adev, census_l_G, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_G, smallBytes, cudaMemcpyHostToDevice ));  
         processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
         optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
-
+    
         checkCudaErrors(cudaMemcpy( adev, census_l_B, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_B, smallBytes, cudaMemcpyHostToDevice ));  
         processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
@@ -137,18 +138,23 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
 
 
     Mat splitResult[3];
+    Mat splitResultRight[3];
     split(leftImage, splitResult);
     Mat leftImageR = splitResult[0];
     Mat leftImageG = splitResult[1];
     Mat leftImageB = splitResult[2];
-    split(rightImage, splitResult);
-    Mat rightImageR = splitResult[0];
-    Mat rightImageG = splitResult[1];
-    Mat rightImageB = splitResult[2];
+    split(rightImage, splitResultRight);
+    Mat rightImageR = splitResultRight[0];
+    Mat rightImageG = splitResultRight[1];
+    Mat rightImageB = splitResultRight[2];
 
 
-    // unsigned char *census_l = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
-    // unsigned char *census_r = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    imshow("leftImageR", leftImageR);
+    imshow("leftImageG", leftImageG);
+    imshow("leftImageB", leftImageB);
+
+    unsigned char *census_l = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    unsigned char *census_r = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
 
     unsigned char *census_l_R = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
     unsigned char *census_l_G = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
@@ -158,21 +164,22 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     unsigned char *census_r_B = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
 
     // 1. Census Transform"
-    // census_transform(leftImage, census_l, rows, cols);
-    // census_transform(rightImage, census_r, rows, cols);
+    census_transform(leftImage, census_l, rows, cols);
+    census_transform(rightImage, census_r, rows, cols);
 
-    census_transform(leftImage, census_l_R, rows, cols);
-    census_transform(leftImage, census_l_G, rows, cols);
-    census_transform(leftImage, census_l_B, rows, cols);
-    census_transform(rightImage, census_r_R, rows, cols);
-    census_transform(rightImage, census_r_G, rows, cols);
-    census_transform(rightImage, census_r_B, rows, cols);
+    census_transform(leftImageR, census_l_R, rows, cols);
+    census_transform(leftImageG, census_l_G, rows, cols);
+    census_transform(leftImageB, census_l_B, rows, cols);
+    census_transform(rightImageR, census_r_R, rows, cols);
+    census_transform(rightImageG, census_r_G, rows, cols);
+    census_transform(rightImageB, census_r_B, rows, cols);
 
     // 2. Calculate Pixel Cost.
     // 3. Aggregate Cost
     //One CUDA operation
     costTime = (double) getTickCount();
     allProcessOnCUDA(census_l_R, census_l_G, census_l_B, census_r_R, census_r_G, census_r_B, sum_cost, rows, cols);
+    // allProcessOnCUDA(census_l_R, census_l_G, census_l_B, census_r_R, census_r_G, census_r_B, sum_cost, rows, cols);
     costTime = ((double)getTickCount() - costTime)/getTickFrequency();
 
     // 4. Create Disparity Image.
@@ -185,8 +192,8 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
 
 
-    // free(census_l);
-    // free(census_r);
+    free(census_l);
+    free(census_r);
     free(census_l_R);
     free(census_r_G);
     free(census_l_B);
@@ -204,11 +211,16 @@ int main () {
     // Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_GRAYSCALE);
     // Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_COLOR);
     // Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_COLOR);
-    Mat leftImage = cv::imread("./src/images/appleLeft.jpg",cv::IMREAD_GRAYSCALE);
-    Mat rightImage = cv::imread("./src/images/appleRight.jpg",cv::IMREAD_GRAYSCALE);
-
+    // Mat leftImage = cv::imread("./src/images/appleLeft.jpg");
+    // Mat rightImage = cv::imread("./src/images/appleRight.jpg");
+    // Mat leftImage = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_COLOR);
+    // Mat rightImage = cv::imread("./src/images/warRight.jpg",cv::IMREAD_COLOR);
+    Mat leftImage = cv::imread("./src/images/warLeft.jpg");
+    Mat rightImage = cv::imread("./src/images/warRight.jpg");
+    // Mat leftImage = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_GRAYSCALE);
+    // Mat rightImage = cv::imread("./src/images/warRight.jpg",cv::IMREAD_GRAYSCALE);
     imshow("leftImage", leftImage);
-    imshow("rightImage", rightImage);
+    // imshow("rightImage", rightImage);
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
     cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);

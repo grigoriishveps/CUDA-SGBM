@@ -5,8 +5,8 @@
 
 #define D_LVL 64
 #define PATHS 5
-#define P1 20
-#define P2 30
+#define P1 5
+#define P2 10
 // #define P1 24
 // #define P2 48  //96
 
