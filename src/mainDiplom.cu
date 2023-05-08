@@ -32,7 +32,12 @@ using namespace std;
 
 
 
-__host__ void allProcessOnCUDA(unsigned char* census_l, unsigned char* census_r, int* pix_cost,  size_t rows, size_t cols) {
+__host__ void allProcessOnCUDA(
+    unsigned char* census_l_R, unsigned char* census_l_G, unsigned char* census_l_B,
+    unsigned char* census_r_R, unsigned char* census_r_G, unsigned char* census_r_B,
+    int* pix_cost,
+    size_t rows, size_t cols
+) {
     int numBytes = rows * cols * D_LVL * sizeof(int);
     int smallBytes = rows * cols * D_LVL * sizeof(unsigned char);
 
@@ -65,11 +70,28 @@ __host__ void allProcessOnCUDA(unsigned char* census_l, unsigned char* census_r,
         
         // asynchronously issue work to the GPU (all to stream 0)
         cudaEventRecord ( start,  0 );
-        checkCudaErrors(cudaMemcpy( adev, census_l, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
-        checkCudaErrors(cudaMemcpy( bdev, census_r, smallBytes, cudaMemcpyHostToDevice ));  // CAN ASYNC
+    
 
+        clearResCUDA<<<blocks, threads>>> (middleRes, rows, cols);
+        clearResCUDA<<<blocks, threads>>> (resCuda, rows, cols);
         // COST
-        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, middleRes, rows, cols);
+        checkCudaErrors(cudaMemcpy( adev, census_l_R, smallBytes, cudaMemcpyHostToDevice ));
+        checkCudaErrors(cudaMemcpy( bdev, census_r_R, smallBytes, cudaMemcpyHostToDevice ));  
+        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
+
+        checkCudaErrors(cudaMemcpy( adev, census_l_G, smallBytes, cudaMemcpyHostToDevice ));
+        checkCudaErrors(cudaMemcpy( bdev, census_r_G, smallBytes, cudaMemcpyHostToDevice ));  
+        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
+
+        checkCudaErrors(cudaMemcpy( adev, census_l_B, smallBytes, cudaMemcpyHostToDevice ));
+        checkCudaErrors(cudaMemcpy( bdev, census_r_B, smallBytes, cudaMemcpyHostToDevice ));  
+        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
+
+  
+
 
         // PATH
         optimized_matMult_LEFT<<<rows, D_LVL>>> ( middleRes, extraStore, rows, cols);
@@ -117,18 +139,44 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
         exit(EXIT_FAILURE);
     }
 
-    unsigned char *census_l = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
-    unsigned char *census_r = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
 
-    cout << "1. Census Transform" << endl;
-    census_transform(leftImage, census_l, rows, cols);
-    census_transform(rightImage, census_r, rows, cols);
+    Mat splitResult[3];
+    split(leftImage, splitResult);
+    Mat leftImageR = splitResult[0];
+    Mat leftImageG = splitResult[1];
+    Mat leftImageB = splitResult[2];
+    split(rightImage, splitResult);
+    Mat rightImageR = splitResult[0];
+    Mat rightImageG = splitResult[1];
+    Mat rightImageB = splitResult[2];
+
+
+    // unsigned char *census_l = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    // unsigned char *census_r = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+
+    unsigned char *census_l_R = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    unsigned char *census_l_G = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    unsigned char *census_l_B = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    unsigned char *census_r_R = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    unsigned char *census_r_G = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    unsigned char *census_r_B = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+
+    // 1. Census Transform"
+    // census_transform(leftImage, census_l, rows, cols);
+    // census_transform(rightImage, census_r, rows, cols);
+
+    census_transform(leftImage, census_l_R, rows, cols);
+    census_transform(leftImage, census_l_G, rows, cols);
+    census_transform(leftImage, census_l_B, rows, cols);
+    census_transform(rightImage, census_r_R, rows, cols);
+    census_transform(rightImage, census_r_G, rows, cols);
+    census_transform(rightImage, census_r_B, rows, cols);
 
     // 2. Calculate Pixel Cost.
     // 3. Aggregate Cost
     //One CUDA operation
     costTime = (double) getTickCount();
-    allProcessOnCUDA(census_l, census_r, sum_cost, rows, cols);
+    allProcessOnCUDA(census_l_R, census_l_G, census_l_B, census_r_R, census_r_G, census_r_B, sum_cost, rows, cols);
     costTime = ((double)getTickCount() - costTime)/getTickFrequency();
 
     // 4. Create Disparity Image.
@@ -140,23 +188,32 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 120ms
     cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
 
+
+    // free(census_l);
+    // free(census_r);
+    free(census_l_R);
+    free(census_r_G);
+    free(census_l_B);
+    free(census_r_R);
+    free(census_l_G);
+    free(census_r_B);
+    
     free(sum_cost);
-    free(census_l);
-    free(census_r);
 }
 
 
 int main () {
     double solving_time, allTimeSolving = (double) getTickCount();
-
     // Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_GRAYSCALE);
     // Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_GRAYSCALE);
-    // Mat leftImage = cv::imread("./src/images/appleLeft.jpg",cv::IMREAD_GRAYSCALE);
-    // Mat rightImage = cv::imread("./src/images/appleRight.jpg",cv::IMREAD_GRAYSCALE);
-    // Mat leftImage = cv::imread("./src/images/carLeft.jpg",cv::IMREAD_GRAYSCALE);
-    // Mat rightImage = cv::imread("./src/images/carRight.jpg",cv::IMREAD_GRAYSCALE);
-    Mat leftImage = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_GRAYSCALE);
-    Mat rightImage = cv::imread("./src/images/warRight.jpg",cv::IMREAD_GRAYSCALE);
+    // Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_COLOR);
+    // Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_COLOR);
+    Mat leftImage = cv::imread("./src/images/appleLeft.jpg",cv::IMREAD_GRAYSCALE);
+    Mat rightImage = cv::imread("./src/images/appleRight.jpg",cv::IMREAD_GRAYSCALE);
+    
+    imshow("leftImage", leftImage);
+    imshow("rightImage", rightImage);
+
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
     cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);
@@ -165,15 +222,24 @@ int main () {
     cout << " Start timing"<< endl;
     solving_time = (double) getTickCount();
 
-    imshow("leftImage", leftImage);
-    imshow("rightImage", rightImage);
+    // resize(leftImage, left_for_matcher, Size(),0.1,0.1, INTER_LINEAR_EXACT);
+    // cvtColor(left_for_matcher,  left_for_matcher,  COLOR_BGR2GRAY);
+    // left_for_matcher.convertTo(left_for_matcher, CV_16UC1);
+    // leftImage.convertTo(leftImage, CV_16UC3);
+
+
+    // imshow("Blue Channel", leftImageR);//showing Blue channel//
+    // imshow("Green Channel", leftImageG);//showing Green channel//
+    // imshow("Red Channel", leftImageB);
+    // cout << leftImageR;
+
     calculateImageDisparity(leftImage, rightImage, dispImg);
 
     // Visualize Disparity Image.
     disparityMap = *dispImg;
     disparityMap.convertTo(disparityMap, CV_8U, 256.0/D_LVL);
     applyColorMap(disparityMap, disparityMap, COLORMAP_JET);
-    imshow("disparityImage", disparityMap);
+    imshow("disparityMap", disparityMap);
 
     // END TEST GRAYSCALE
 
