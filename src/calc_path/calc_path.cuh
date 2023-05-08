@@ -16,5 +16,7 @@ __global__ void optimised_concatResCUDA ( int*  agg_cost, int* res,  size_t rows
 __global__ void optimized_matMult_LEFT ( int * pix_cost, int* agg_cost,  size_t rows, size_t cols );
 __global__ void optimized_matMult_RIGHT ( int * pix_cost, int* agg_cost,  size_t rows, size_t cols );
 __global__ void optimized_matMult_TOP ( int * pix_cost, int* agg_cost,  size_t rows, size_t cols );
+__global__ void optimized_matMult_LEFT_TOP ( int * pix_cost, int * agg_cost,  size_t rows_t, size_t cols_t );
+__global__ void optimized_matMult_RIGHT_TOP ( int * pix_cost, int * agg_cost,  size_t rows_t, size_t cols_t );
 __global__ void clearResCUDA ( int * res,  size_t rows, size_t cols );
 
