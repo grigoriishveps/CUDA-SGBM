@@ -78,6 +78,10 @@ __host__ void allProcessOnCUDA(unsigned char* census_l, unsigned char* census_r,
         optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
         optimized_matMult_TOP<<<cols, D_LVL>>> (middleRes, extraStore, rows, cols);
         optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        optimized_matMult_LEFT_TOP<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        optimized_matMult_RIGHT_TOP<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
 
         checkCudaErrors(cudaMemcpy( pix_cost, resCuda, numBytes, cudaMemcpyDeviceToHost ));
         cudaEventRecord ( stop, 0 );
@@ -145,14 +149,14 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
 int main () {
     double solving_time, allTimeSolving = (double) getTickCount();
 
-    Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_GRAYSCALE);
-    Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_GRAYSCALE);
+    // Mat leftImage = cv::imread("./src/images/leftImage1.png",cv::IMREAD_GRAYSCALE);
+    // Mat rightImage = cv::imread("./src/images/rightImage1.png",cv::IMREAD_GRAYSCALE);
     // Mat leftImage = cv::imread("./src/images/appleLeft.jpg",cv::IMREAD_GRAYSCALE);
     // Mat rightImage = cv::imread("./src/images/appleRight.jpg",cv::IMREAD_GRAYSCALE);
     // Mat leftImage = cv::imread("./src/images/carLeft.jpg",cv::IMREAD_GRAYSCALE);
     // Mat rightImage = cv::imread("./src/images/carRight.jpg",cv::IMREAD_GRAYSCALE);
-    // Mat leftImage = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_GRAYSCALE);
-    // Mat rightImage = cv::imread("./src/images/warRight.jpg",cv::IMREAD_GRAYSCALE);
+    Mat leftImage = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_GRAYSCALE);
+    Mat rightImage = cv::imread("./src/images/warRight.jpg",cv::IMREAD_GRAYSCALE);
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
     cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);
