@@ -101,6 +101,10 @@ __host__ void allProcessOnCUDA(
         optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
         optimized_matMult_TOP<<<cols, D_LVL>>> (middleRes, extraStore, rows, cols);
         optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        optimized_matMult_LEFT_TOP<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        optimized_matMult_RIGHT_TOP<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
 
         checkCudaErrors(cudaMemcpy( pix_cost, resCuda, numBytes, cudaMemcpyDeviceToHost ));
         cudaEventRecord ( stop, 0 );
@@ -219,8 +223,10 @@ int main () {
     Mat rightImage = cv::imread("./src/images/warRight.jpg");
     // Mat leftImage = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_GRAYSCALE);
     // Mat rightImage = cv::imread("./src/images/warRight.jpg",cv::IMREAD_GRAYSCALE);
+
     imshow("leftImage", leftImage);
     // imshow("rightImage", rightImage);
+
 
     size_t cols = leftImage.cols, rows = leftImage.rows;
     cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);
