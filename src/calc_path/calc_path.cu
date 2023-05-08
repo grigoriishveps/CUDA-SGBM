@@ -5,10 +5,10 @@
 
 #define D_LVL 64
 
-#define P1 5
-#define P2 10
-// #define P1 25
-// #define P2 49
+// #define P1 5
+// #define P2 10
+#define P1 25
+#define P2 49
 
 // #define P1 24
 // #define P2 48  //96
