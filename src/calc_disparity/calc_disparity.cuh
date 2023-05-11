@@ -5,4 +5,4 @@
 #include <iostream>
 #include <bitset>
 
-void calc_disparity(int* sum_cost, cv::Mat &disp_img, size_t rows, size_t cols);
+__global__ void calcDisparity(int*sumCost, uchar* disparityMap, size_t cols);

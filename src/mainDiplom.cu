@@ -9,8 +9,7 @@
 #include <iostream>
 #include <bitset>
 #include "./helpers/helper.cuh"
-#include "./calc_cost/calc_cost.cuh"
-#include "./calc_disparity/calc_disparity.cuh"
+#include "./calc_cost/calc_cost_and_disparity.cuh"
 #include "./calc_path/calc_path.cuh"
 
 using namespace cv;
@@ -35,14 +34,14 @@ using namespace std;
 __host__ void allProcessOnCUDA(
     unsigned char* census_l_R, unsigned char* census_l_G, unsigned char* census_l_B,
     unsigned char* census_r_R, unsigned char* census_r_G, unsigned char* census_r_B,
-    int* pix_cost,
+    uchar* disparityMap,
     size_t rows, size_t cols
 ) {
     int numBytes = rows * cols * D_LVL * sizeof(int);
     int smallBytes = rows * cols * D_LVL * sizeof(unsigned char);
 
     // allocate device memory
-    unsigned char * adev = NULL, *bdev = NULL;
+    unsigned char * adev = NULL, *bdev = NULL, *disparityRes = NULL;
     int * extraStore = NULL;
     int * resCuda = NULL, *middleRes = NULL;
 
@@ -50,7 +49,8 @@ __host__ void allProcessOnCUDA(
     checkCudaErrors(cudaMalloc ( (void**)&bdev, smallBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&middleRes, numBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&extraStore, numBytes ));
-    checkCudaErrors(cudaMalloc ( (void**)&resCuda, numBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&resCuda, numBytes  ));
+    checkCudaErrors(cudaMalloc ( (void**)&disparityRes, smallBytes));
 
     // set kernel launch configuration
   
@@ -73,36 +73,42 @@ __host__ void allProcessOnCUDA(
 
         clearResCUDA<<<blocks, threads>>> (middleRes, rows, cols);
         clearResCUDA<<<blocks, threads>>> (resCuda, rows, cols);
+        clearResCUDA<<<blocks, threads>>> (disparityRes, rows, cols);
         // COST
         checkCudaErrors(cudaMemcpy( adev, census_l_R, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_R, smallBytes, cudaMemcpyHostToDevice ));  
-        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
+        calculateInitialCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
 
         checkCudaErrors(cudaMemcpy( adev, census_l_G, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_G, smallBytes, cudaMemcpyHostToDevice ));  
-        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
+        calculateInitialCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
     
         checkCudaErrors(cudaMemcpy( adev, census_l_B, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_B, smallBytes, cudaMemcpyHostToDevice ));  
-        processAgregateCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
+        calculateInitialCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
 
-  
+
         // PATH
-        optimized_matMult_LEFT<<<rows, D_LVL>>> ( middleRes, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
-        optimized_matMult_RIGHT<<<rows, D_LVL>>> (middleRes, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
-        optimized_matMult_TOP<<<cols, D_LVL>>> (middleRes, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
-        optimized_matMult_LEFT_TOP<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
-        optimized_matMult_RIGHT_TOP<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
-        optimised_concatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        calculatePathLeft<<<rows, D_LVL>>> ( middleRes, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        calculatePathRight<<<rows, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        calculatePathTop<<<cols, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        calculatePathBackslash<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
+        calculatePathSlash<<<cols + rows - 1, D_LVL>>> (middleRes, extraStore, rows, cols);
+        optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
 
-        checkCudaErrors(cudaMemcpy( pix_cost, resCuda, numBytes, cudaMemcpyDeviceToHost ));
+
+        //Disparyty
+        calculateDisparityCUDA<<<blocks, 1>>> (resCuda, disparityRes, cols);
+
+        checkCudaErrors(cudaMemcpy( disparityMap, disparityRes, smallBytes, cudaMemcpyDeviceToHost ));
+        
         cudaEventRecord ( stop, 0 );
 
         cudaEventSynchronize ( stop );
@@ -123,15 +129,16 @@ __host__ void allProcessOnCUDA(
     cudaFree  ( middleRes );
     cudaFree  ( extraStore );
     cudaFree  ( resCuda );
+    cudaFree  ( disparityRes );
 }
 
 
-void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *dispImg) {
-    double costTime, disparityTime;
+cv::Mat* calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage) {
+    double costTime;
     size_t cols = leftImage.cols, rows = leftImage.rows;
-    int *sum_cost = (int *) calloc(rows * cols * D_LVL, sizeof(int));
+    uchar *disparityMap = (uchar *) calloc(rows * cols * D_LVL, sizeof(uchar));
 
-    if (!sum_cost) {
+    if (!disparityMap) {
         printf("mem failure, exiting A \n");
         exit(EXIT_FAILURE);
     }
@@ -168,20 +175,13 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
 
     // 2. Calculate Pixel Cost.
     // 3. Aggregate Cost
+    // 4. Create Disparity Image.
     //One CUDA operation
     costTime = (double) getTickCount();
-    allProcessOnCUDA(census_l_R, census_l_G, census_l_B, census_r_R, census_r_G, census_r_B, sum_cost, rows, cols);
+    allProcessOnCUDA(census_l_R, census_l_G, census_l_B, census_r_R, census_r_G, census_r_B, disparityMap, rows, cols);
     costTime = ((double)getTickCount() - costTime)/getTickFrequency();
 
-    // 4. Create Disparity Image.
-    cout << "3. Create Disparity Image." << endl;
-    disparityTime = (double) getTickCount();
-    calc_disparity(sum_cost, *dispImg, rows, cols);
-    disparityTime = ((double)getTickCount() - disparityTime)/getTickFrequency();
-
-    cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 120ms
-    cout<<"Disparity algorithm time: "<< disparityTime <<"s"<<endl;  // 36ms
-
+    cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 123ms
 
     free(census_l_R);
     free(census_r_G);
@@ -190,7 +190,7 @@ void calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage, cv::Mat *d
     free(census_l_G);
     free(census_r_B);
     
-    free(sum_cost);
+    return new Mat(rows, cols, CV_8UC1, disparityMap);
 }
 
 
@@ -212,9 +212,7 @@ int main () {
     // imshow("leftImage", leftImage);
     // imshow("rightImage", rightImage);
 
-
-    size_t cols = leftImage.cols, rows = leftImage.rows;
-    cv::Mat disparityMap, *dispImg = new cv::Mat(rows, cols, CV_8UC1);
+    cv::Mat disparityMap, *dispImg;
 
     cout.precision(3);
     cout << " Start timing"<< endl;
@@ -231,7 +229,7 @@ int main () {
     // imshow("Red Channel", leftImageB);
     // cout << leftImageR;
 
-    calculateImageDisparity(leftImage, rightImage, dispImg);
+    dispImg = calculateImageDisparity(leftImage, rightImage);
 
     // Visualize Disparity Image.
     disparityMap = *dispImg;
