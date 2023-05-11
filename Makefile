@@ -58,5 +58,5 @@ $(PROJECT) : mainDiplom.o
 # ---- nvidea 
 
 mainDiplom.o : src/mainDiplom.cu src/helpers/helper.cu
-	${CC} --gpu-architecture=sm_50 --device-c src/mainDiplom.cu src/helpers/helper.cu src/calc_cost/calc_cost_and_disparity.cu src/calc_path/calc_path.cu $(LIBS)
+	${CC} --device-c src/mainDiplom.cu src/helpers/helper.cu src/calc_cost/calc_cost_and_disparity.cu src/calc_path/calc_path.cu $(LIBS)
 

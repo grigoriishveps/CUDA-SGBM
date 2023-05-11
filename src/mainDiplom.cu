@@ -212,7 +212,7 @@ int main () {
     // imshow("leftImage", leftImage);
     // imshow("rightImage", rightImage);
 
-    cv::Mat disparityMap, *dispImg;
+    cv::Mat *disparityMap;
 
     cout.precision(3);
     cout << " Start timing"<< endl;
@@ -222,31 +222,26 @@ int main () {
     // cvtColor(left_for_matcher,  left_for_matcher,  COLOR_BGR2GRAY);
     // left_for_matcher.convertTo(left_for_matcher, CV_16UC1);
     // leftImage.convertTo(leftImage, CV_16UC3);
+    disparityMap = calculateImageDisparity(leftImage, rightImage);
 
 
-    // imshow("Blue Channel", leftImageR);//showing Blue channel//
-    // imshow("Green Channel", leftImageG);//showing Green channel//
-    // imshow("Red Channel", leftImageB);
-    // cout << leftImageR;
 
-    dispImg = calculateImageDisparity(leftImage, rightImage);
-
-    // Visualize Disparity Image.
-    disparityMap = *dispImg;
-    disparityMap.convertTo(disparityMap, CV_8U, 256.0/D_LVL);
-    applyColorMap(disparityMap, disparityMap, COLORMAP_JET);
-    imshow("disparityMap", disparityMap);
 
     // END TEST GRAYSCALE
-
     solving_time = ((double)getTickCount() - solving_time)/getTickFrequency();
-    allTimeSolving = ((double)getTickCount() - allTimeSolving)/getTickFrequency();
+ 
 
+    // Visualize Disparity Image.
+    disparityMap->convertTo(*disparityMap, CV_8U, 256.0/D_LVL);
+    applyColorMap(*disparityMap, *disparityMap, COLORMAP_JET);
+    imshow("disparityMap", *disparityMap);
+
+    allTimeSolving = ((double)getTickCount() - allTimeSolving)/getTickFrequency();
     cout<<"Process time: "<<solving_time<<"s"<<endl;     // 179ms
     cout<<"All run time: "<<allTimeSolving<<"s"<<endl;   // 184ms
     std::cout << "OK"<< std::endl;
 
-    free(dispImg);
+    free(disparityMap);
 
     while(1)
     {
