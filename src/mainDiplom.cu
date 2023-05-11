@@ -42,20 +42,34 @@ __host__ void allProcessOnCUDA(
 
     // allocate device memory
     unsigned char * adev = NULL, *bdev = NULL, *disparityRes = NULL;
+    unsigned char * adevRes = NULL, *bdevRes = NULL;
     int * extraStore = NULL;
     int * resCuda = NULL, *middleRes = NULL;
 
     checkCudaErrors(cudaMalloc ( (void**)&adev, smallBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&bdev, smallBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&adevRes, smallBytes ));
+    checkCudaErrors(cudaMalloc ( (void**)&bdevRes, smallBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&middleRes, numBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&extraStore, numBytes ));
     checkCudaErrors(cudaMalloc ( (void**)&resCuda, numBytes  ));
     checkCudaErrors(cudaMalloc ( (void**)&disparityRes, smallBytes));
 
+
+    // cudaHostRegister(adev, smallBytes, 0);
+    // cudaHostRegister(bdev, smallBytes, 1);
+
+
     // set kernel launch configuration
   
     dim3 threads ( D_LVL );
     dim3 blocks  ( rows, cols );
+    dim3 miniBlocks  ( rows - 2, cols - 2 );
+    cudaStream_t stream1, stream2, stream3;
+    cudaStreamCreate(&stream1);
+    cudaStreamCreate(&stream2);
+    cudaStreamCreate(&stream3);
+
     // create cuda event handles
     cudaEvent_t start, stop;
     float gpuTime;
@@ -74,20 +88,29 @@ __host__ void allProcessOnCUDA(
         clearResCUDA<<<blocks, threads>>> (middleRes, rows, cols);
         clearResCUDA<<<blocks, threads>>> (resCuda, rows, cols);
         clearResCUDA<<<blocks, threads>>> (disparityRes, rows, cols);
+
+
         // COST
         checkCudaErrors(cudaMemcpy( adev, census_l_R, smallBytes, cudaMemcpyHostToDevice ));
-        checkCudaErrors(cudaMemcpy( bdev, census_r_R, smallBytes, cudaMemcpyHostToDevice ));  
-        calculateInitialCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        checkCudaErrors(cudaMemcpy( bdev, census_r_R, smallBytes, cudaMemcpyHostToDevice ));
+        censusTransform<<<miniBlocks, 1>>> (adev, adevRes, cols);
+        censusTransform<<<miniBlocks, 1>>> (bdev, bdevRes, cols);
+        calculateInitialCostCUDA <<<blocks, threads>>> ( adevRes, bdevRes, extraStore, rows, cols);
         optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
 
+        cudaDeviceSynchronize();
         checkCudaErrors(cudaMemcpy( adev, census_l_G, smallBytes, cudaMemcpyHostToDevice ));
-        checkCudaErrors(cudaMemcpy( bdev, census_r_G, smallBytes, cudaMemcpyHostToDevice ));  
-        calculateInitialCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        checkCudaErrors(cudaMemcpy( bdev, census_r_G, smallBytes, cudaMemcpyHostToDevice ));
+        censusTransform<<<miniBlocks, 1>>> (adev, adevRes, cols);
+        censusTransform<<<miniBlocks, 1>>> (bdev, bdevRes, cols);
+        calculateInitialCostCUDA <<<blocks, threads>>> ( adevRes, bdevRes, extraStore, rows, cols);
         optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
     
         checkCudaErrors(cudaMemcpy( adev, census_l_B, smallBytes, cudaMemcpyHostToDevice ));
-        checkCudaErrors(cudaMemcpy( bdev, census_r_B, smallBytes, cudaMemcpyHostToDevice ));  
-        calculateInitialCostCUDA <<<blocks, threads>>> ( adev, bdev, extraStore, rows, cols);
+        checkCudaErrors(cudaMemcpy( bdev, census_r_B, smallBytes, cudaMemcpyHostToDevice ));
+        censusTransform<<<miniBlocks, 1>>> (adev, adevRes, cols);
+        censusTransform<<<miniBlocks, 1>>> (bdev, bdevRes, cols);
+        calculateInitialCostCUDA <<<blocks, threads>>> ( adevRes, bdevRes, extraStore, rows, cols);
         optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
 
 
@@ -114,6 +137,10 @@ __host__ void allProcessOnCUDA(
         cudaEventSynchronize ( stop );
         cudaEventElapsedTime ( &gpuTime, start, stop );
 
+        cudaStreamDestroy(stream1);
+        cudaStreamDestroy(stream2);
+        cudaStreamDestroy(stream3);
+
         cudaEventDestroy ( start );
         cudaEventDestroy ( stop  );
         allRes += gpuTime;
@@ -126,6 +153,8 @@ __host__ void allProcessOnCUDA(
     // release resources
     checkCudaErrors(cudaFree( adev  ));
     cudaFree  ( bdev );
+    checkCudaErrors(cudaFree( adevRes  ));
+    cudaFree  ( bdevRes );
     cudaFree  ( middleRes );
     cudaFree  ( extraStore );
     cudaFree  ( resCuda );
@@ -133,7 +162,7 @@ __host__ void allProcessOnCUDA(
 }
 
 
-cv::Mat* calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage) {
+__host__ cv::Mat* calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage) {
     double costTime;
     size_t cols = leftImage.cols, rows = leftImage.rows;
     uchar *disparityMap = (uchar *) calloc(rows * cols * D_LVL, sizeof(uchar));
@@ -144,52 +173,53 @@ cv::Mat* calculateImageDisparity(cv::Mat &leftImage, cv::Mat &rightImage) {
     }
 
 
-    Mat splitResult[3], splitResultRight[3];
-    split(leftImage, splitResult);
-    Mat leftImageR = splitResult[0];
-    Mat leftImageG = splitResult[1];
-    Mat leftImageB = splitResult[2];
+    Mat splitResultLeft[3], splitResultRight[3];
+    split(leftImage, splitResultLeft);
     split(rightImage, splitResultRight);
-    Mat rightImageR = splitResultRight[0];
-    Mat rightImageG = splitResultRight[1];
-    Mat rightImageB = splitResultRight[2];
 
-    // imshow("leftImageR", leftImageR);
-    // imshow("leftImageG", leftImageG);
-    // imshow("leftImageB", leftImageB);
+    costTime = (double) getTickCount();
+    int sizeMem = rows * cols * D_LVL * sizeof(unsigned char);
 
-    unsigned char *census_l_R = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
-    unsigned char *census_l_G = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
-    unsigned char *census_l_B = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
-    unsigned char *census_r_R = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
-    unsigned char *census_r_G = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
-    unsigned char *census_r_B = (unsigned char *) calloc(rows * cols * D_LVL, sizeof(unsigned char));
+    // unsigned char *census_l_R;
+    // unsigned char *census_l_G;
+    // unsigned char *census_l_B;
+    // unsigned char *census_r_R;
+    // unsigned char *census_r_G;
+    // unsigned char *census_r_B;
+
+    unsigned char *census_l_R = splitResultLeft[0].data;
+    unsigned char *census_l_G = splitResultLeft[1].data;
+    unsigned char *census_l_B = splitResultLeft[2].data;
+    unsigned char *census_r_R = splitResultRight[0].data;
+    unsigned char *census_r_G = splitResultRight[1].data;
+    unsigned char *census_r_B = splitResultRight[2].data;
+
+    cudaHostRegister(&census_l_R, sizeMem, 0);
+    cudaHostRegister(&census_l_G, sizeMem, 0);
+    cudaHostRegister(&census_l_B, sizeMem, 0);
+    cudaHostRegister(&census_r_R, sizeMem, 0);
+    cudaHostRegister(&census_r_G, sizeMem, 0);
+    cudaHostRegister(&census_r_B, sizeMem, 0);
 
     // 1. Census Transform"
-    census_transform(leftImageR, census_l_R, rows, cols);
-    census_transform(leftImageG, census_l_G, rows, cols);
-    census_transform(leftImageB, census_l_B, rows, cols);
-    census_transform(rightImageR, census_r_R, rows, cols);
-    census_transform(rightImageG, census_r_G, rows, cols);
-    census_transform(rightImageB, census_r_B, rows, cols);
-
     // 2. Calculate Pixel Cost.
     // 3. Aggregate Cost
     // 4. Create Disparity Image.
     //One CUDA operation
-    costTime = (double) getTickCount();
+    
     allProcessOnCUDA(census_l_R, census_l_G, census_l_B, census_r_R, census_r_G, census_r_B, disparityMap, rows, cols);
     costTime = ((double)getTickCount() - costTime)/getTickFrequency();
 
     cout<<"Cost algorithm time: "<< costTime <<"s"<<endl;  // 123ms
 
-    free(census_l_R);
-    free(census_r_G);
-    free(census_l_B);
-    free(census_r_R);
-    free(census_l_G);
-    free(census_r_B);
+    cudaHostUnregister(census_l_R);
+    cudaHostUnregister(census_r_G);
+    cudaHostUnregister(census_l_B);
+    cudaHostUnregister(census_r_R);
+    cudaHostUnregister(census_l_G);
+    cudaHostUnregister(census_r_B);
     
+
     return new Mat(rows, cols, CV_8UC1, disparityMap);
 }
 
