@@ -3,31 +3,23 @@
 #define WINDOW_WIDTH 9
 #define WINDOW_HEIGHT 7
 
-void census_transform(cv::Mat &img, unsigned char *census, size_t rows, size_t cols){
-  unsigned char * const img_pnt_st = img.data;
+__global__ void censusTransform(unsigned char *img, unsigned char *census, size_t cols) {
+  int row = blockIdx.x + 1;  // block index
+  int col = blockIdx.y + 1;
 
-  for (int row=1; row<rows-1; row++) {
-    for (int col=1; col<cols-1; col++) {
-
-      unsigned char *center_pnt = img_pnt_st + cols*row + col;
-      unsigned char val = 0;
-      for (int drow=-1; drow<=1; drow++) {
-        for (int dcol=-1; dcol<=1; dcol++) {
-          
-          if (drow == 0 && dcol == 0) {
-            continue;
-          }
-          unsigned char tmp = *(center_pnt + dcol + drow*cols);
-          val = (val + (tmp < *center_pnt ? 0 : 1)) << 1;        
-        }
-      }
-      census[cols*row + col] = (unsigned char) val;
+  unsigned char val = 0;
+  for (int drow = -1; drow <= 1; drow += 2) {
+    for (int dcol = -1; dcol <= 1; dcol += 2) {
+      unsigned char tmp = img[cols * (row + drow) + col + dcol];
+      val = (val + (tmp < img[cols * row + col] ? 0 : 1)) << 1;        
     }
   }
+
+  census[cols*row + col] = (unsigned char) val; 
 }
 
 
-uint** toCSCT (short** inArr, size_t rows, size_t cols) {
+uint** toCSCT (short* inArr, size_t rows, size_t cols) {
     uint **resArr = new uint*[rows];
 
     for (int i = 0; i < rows; ++i){
@@ -43,7 +35,7 @@ uint** toCSCT (short** inArr, size_t rows, size_t cols) {
             
             for (int y = i - int(WINDOW_HEIGHT / 2), bitIndex = 0; y < i + int(WINDOW_HEIGHT / 2) ; ++y){
                 for (int x = j - int(WINDOW_WIDTH / 2); x < j + int(WINDOW_WIDTH / 2); ++x, bitIndex++) {
-                    sumArr[bitIndex] = (short)((y < 0 || y >= rows || x < 0 || x>=cols ) ? 0 : inArr[y][x]);
+                    sumArr[bitIndex] = (short)((y < 0 || y >= rows || x < 0 || x>=cols ) ? 0 : inArr[y * cols + x]);
                 }
             } 
 
