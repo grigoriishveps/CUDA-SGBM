@@ -33,26 +33,25 @@ __global__ void calculateInitialCostCUDA  (unsigned char *left, unsigned char *r
     res[index] = calc_hamming_dist_CUDA(val_l, val_r);
 }
 
-__global__ void calculateDisparityCUDA(int*sumCost, uchar* disparityMap, size_t cols) {
-  int row = blockIdx.x;
-  int col  = blockIdx.y;
+__global__ void calculateDisparityCUDA(int*sumCost, uchar* disparityMap, size_t rows, size_t cols) {
+  int col  = blockIdx.x + threadIdx.x;
   
-  if (col < D_LVL) {
-      disparityMap[row * cols + col] = 0;
-  } else {
-      unsigned char minDepth = 0;
-      int index  = row * cols* D_LVL + col * D_LVL; 
+  if( col <= cols * rows)
+    return;
+  
+  unsigned char minDepth = 0;
+  int index  = col * D_LVL; 
 
-      int minCost = sumCost[index + minDepth];
-      for (int d = 1; d < D_LVL; d++) {
-        int tmpCost = sumCost[index + d];
+  int minCost = sumCost[index + minDepth];
+  for (int d = 1; d < D_LVL; d++) {
+    int tmpCost = sumCost[index + d];
 
-        if (tmpCost < minCost) {
-          minCost = tmpCost;
-          minDepth = d;
-        }
-      }
-
-      disparityMap[row * cols + col] = minDepth;
+    if (tmpCost < minCost) {
+      minCost = tmpCost;
+      minDepth = d;
+    }
   }
+
+  disparityMap[col] = minDepth;
+  
 }

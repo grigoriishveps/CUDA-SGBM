@@ -3,19 +3,26 @@
 #define WINDOW_WIDTH 9
 #define WINDOW_HEIGHT 7
 
-__global__ void censusTransform(unsigned char *img, unsigned char *census, size_t cols) {
-  int row = blockIdx.x + 1;  // block index
-  int col = blockIdx.y + 1;
+__global__ void censusTransform(unsigned char *img, unsigned char *census, size_t cols, size_t rows) {
+  // int row = blockIdx.x + 1;  // block index
+  int col = blockIdx.x + threadIdx.x + 1;
+
+  if (col >= cols * rows- 1) {
+    return;
+  }
 
   unsigned char val = 0;
   for (int drow = -1; drow <= 1; drow += 2) {
     for (int dcol = -1; dcol <= 1; dcol += 2) {
-      unsigned char tmp = img[cols * (row + drow) + col + dcol];
-      val = (val + (tmp < img[cols * row + col] ? 0 : 1)) << 1;        
+      int index= cols * drow + col + dcol;
+      if(index < 0 || index >= cols*rows)
+        return;
+      unsigned char tmp = img[cols * drow + col + dcol];
+      val = (val + (tmp < img[col] ? 0 : 1)) << 1;        
     }
   }
 
-  census[cols*row + col] = (unsigned char) val; 
+  census[col] = (unsigned char) val; 
 }
 
 

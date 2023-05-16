@@ -6,4 +6,4 @@
 #include <bitset>
 
 __global__ void calculateInitialCostCUDA (unsigned char *left, unsigned char *right, int *res, size_t rows_t, size_t cols_t );
-__global__ void calculateDisparityCUDA(int*sumCost, uchar* disparityMap, size_t cols);
+__global__ void calculateDisparityCUDA(int*sumCost, uchar* disparityMap, size_t rows, size_t cols);

@@ -9,7 +9,7 @@
 #include <iostream>
 #include <bitset>
 
-__global__ void censusTransform(unsigned char *img, unsigned char *census, size_t cols);
+__global__ void censusTransform(unsigned char *img, unsigned char *census, size_t cols, size_t rows);
 uint** toCSCT (short** inArr, size_t rows, size_t cols);
 short** toMatArray (cv::Mat mat);
 

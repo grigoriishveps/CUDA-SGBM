@@ -61,10 +61,12 @@ __host__ void allProcessOnCUDA(
 
 
     // set kernel launch configuration
-  
+    int mainThreads = 32;
+    int threadCols = (cols * rows - 1) / mainThreads + 1;
     dim3 threads ( D_LVL );
     dim3 blocks  ( rows, cols );
-    dim3 miniBlocks  ( rows - 2, cols - 2 );
+    dim3 threadBlock  ( rows, threadCols );
+    dim3 miniBlocks  ( rows - 2, threadCols );
     cudaStream_t stream1, stream2, stream3;
     cudaStreamCreate(&stream1);
     cudaStreamCreate(&stream2);
@@ -87,29 +89,27 @@ __host__ void allProcessOnCUDA(
 
         clearResCUDA<<<blocks, threads>>> (middleRes, rows, cols);
         clearResCUDA<<<blocks, threads>>> (resCuda, rows, cols);
-        clearResCUDA<<<blocks, threads>>> (disparityRes, rows, cols);
 
-
-        // COST
+        // // COST
         checkCudaErrors(cudaMemcpy( adev, census_l_R, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_R, smallBytes, cudaMemcpyHostToDevice ));
-        censusTransform<<<miniBlocks, 1>>> (adev, adevRes, cols);
-        censusTransform<<<miniBlocks, 1>>> (bdev, bdevRes, cols);
+        censusTransform<<<threadCols, mainThreads>>> (adev, adevRes, cols, rows);
+        censusTransform<<<threadCols, mainThreads>>> (bdev, bdevRes, cols, rows);
         calculateInitialCostCUDA <<<blocks, threads>>> ( adevRes, bdevRes, extraStore, rows, cols);
         optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
 
         cudaDeviceSynchronize();
         checkCudaErrors(cudaMemcpy( adev, census_l_G, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_G, smallBytes, cudaMemcpyHostToDevice ));
-        censusTransform<<<miniBlocks, 1>>> (adev, adevRes, cols);
-        censusTransform<<<miniBlocks, 1>>> (bdev, bdevRes, cols);
+        censusTransform<<<threadCols, mainThreads>>> (adev, adevRes, cols, rows);
+        censusTransform<<<threadCols, mainThreads>>> (bdev, bdevRes, cols, rows);
         calculateInitialCostCUDA <<<blocks, threads>>> ( adevRes, bdevRes, extraStore, rows, cols);
         optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
     
         checkCudaErrors(cudaMemcpy( adev, census_l_B, smallBytes, cudaMemcpyHostToDevice ));
         checkCudaErrors(cudaMemcpy( bdev, census_r_B, smallBytes, cudaMemcpyHostToDevice ));
-        censusTransform<<<miniBlocks, 1>>> (adev, adevRes, cols);
-        censusTransform<<<miniBlocks, 1>>> (bdev, bdevRes, cols);
+        censusTransform<<<threadCols, mainThreads>>> (adev, adevRes, cols, rows);
+        censusTransform<<<threadCols, mainThreads>>> (bdev, bdevRes, cols, rows);
         calculateInitialCostCUDA <<<blocks, threads>>> ( adevRes, bdevRes, extraStore, rows, cols);
         optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, middleRes, rows, cols);
 
@@ -127,8 +127,8 @@ __host__ void allProcessOnCUDA(
         optimisedConcatResCUDA<<<blocks, threads>>> (extraStore, resCuda, rows, cols);
 
 
-        //Disparyty
-        calculateDisparityCUDA<<<blocks, 1>>> (resCuda, disparityRes, cols);
+        // Disparyty
+        calculateDisparityCUDA<<<threadCols, mainThreads>>> (resCuda, disparityRes, rows, cols);
 
         checkCudaErrors(cudaMemcpy( disparityMap, disparityRes, smallBytes, cudaMemcpyDeviceToHost ));
         
