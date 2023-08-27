@@ -5,7 +5,7 @@ CC = /usr/local/cuda/bin/nvcc
 PROJECT = forrun
 SRC = src/mainDiplom.cu
 LIBS = `pkg-config --cflags --libs opencv4`
-GENCODE_FLAGS = -m64 -gencode arch=compute_50,code=sm_50 -gencode arch=compute_52,code=sm_52 -gencode arch=compute_60,code=sm_60 -gencode arch=compute_61,code=sm_61 -gencode arch=compute_70,code=sm_70 -gencode arch=compute_75,code=sm_75 -gencode arch=compute_80,code=sm_80 -gencode arch=compute_86,code=sm_86 -gencode arch=compute_90,code=sm_90 -gencode arch=compute_90,code=compute_90
+GENCODE_FLAGS = -m64
 
 SRC_DIR = src
 OBJ_DIR = bin
@@ -29,7 +29,7 @@ clean : $(PROJECT)
 # 	$(CC) $(OBJS) $(GENCODE_FLAGS) -o $@ $(LIBS)
 
 $(PROJECT) : mainDiplom.o
-	$(CC) mainDiplom.o helper.o calc_cost.o calc_disparity.o old_calc_direction.o calc_path.o $(GENCODE_FLAGS) -o $@ $(LIBS)
+	$(CC) mainDiplom.o helper.o calc_cost_and_disparity.o calc_path.o $(GENCODE_FLAGS) -o $@ $(LIBS)
 
 # Compile main .cpp file to object files:
 # $(OBJ_DIR)/%.o : %.cpp
@@ -58,5 +58,5 @@ $(PROJECT) : mainDiplom.o
 # ---- nvidea 
 
 mainDiplom.o : src/mainDiplom.cu src/helpers/helper.cu
-	${CC} --gpu-architecture=sm_50 --device-c src/mainDiplom.cu src/helpers/helper.cu src/calc_cost/calc_cost.cu src/calc_disparity/calc_disparity.cu src/old_calc_direction/old_calc_direction.cu src/calc_path/calc_path.cu $(LIBS)
+	${CC} --gpu-architecture=sm_50 --device-c src/mainDiplom.cu src/helpers/helper.cu src/calc_cost/calc_cost_and_disparity.cu src/calc_path/calc_path.cu $(LIBS)
 
