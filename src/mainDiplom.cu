@@ -38,9 +38,10 @@ int main( int argc, char** argv )
     Mat left_for_matcher, right_for_matcher;
 
     double solving_time = 0;    
-    Mat left = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_COLOR);
-    Mat right = cv::imread("./src/images/warRight.jpg",cv::IMREAD_COLOR);
-    
+    // Mat left = cv::imread("./src/images/warLeft.jpg",cv::IMREAD_COLOR);
+    // Mat right = cv::imread("./src/images/warRight.jpg",cv::IMREAD_COLOR);
+    Mat left = cv::imread("./src/images/leftImage1.png",cv::IMREAD_COLOR);
+    Mat right = cv::imread("./src/images/rightImage1.png",cv::IMREAD_COLOR);
 
     left_for_matcher  = left.clone();
     right_for_matcher = right.clone();
@@ -75,6 +76,8 @@ int main( int argc, char** argv )
     double vis_mult = 1.0;
     Mat raw_disp_vis;
     getDisparityVis(left_disp,raw_disp_vis,vis_mult);
+    raw_disp_vis.convertTo(raw_disp_vis, CV_8U, 256.0/64);
+    applyColorMap(raw_disp_vis, raw_disp_vis, COLORMAP_JET);
     namedWindow("raw disparity", WINDOW_AUTOSIZE);
     imshow("raw disparity", raw_disp_vis);
     
